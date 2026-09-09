@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const google = require("../googleClient");
-const { requireAuth } = require("../middleware");
+const google = require("../services/googleClient");
+const { requireAuth } = require("../middleware/auth");
 
 router.use(requireAuth);
 
@@ -47,7 +47,7 @@ router.get("/select-location", async (req, res, next) => {
       locationsByAccount.push({ account: acc, locations });
     }
 
-    res.render("select-location", { locationsByAccount });
+    res.render("auth/select-location", { locationsByAccount });
   } catch (err) {
     next(err);
   }

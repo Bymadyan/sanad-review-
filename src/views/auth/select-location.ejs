@@ -14,6 +14,7 @@
     <% locationsByAccount.forEach(function(entry) { %>
       <% entry.locations.forEach(function(loc) { %>
         <form method="POST" action="/auth/select-location" class="location-card">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
           <input type="hidden" name="locationName" value="<%= loc.name %>" />
           <input type="hidden" name="businessName" value="<%= loc.title %>" />
           <input type="hidden" name="reviewLink" value="<%= (loc.metadata && loc.metadata.newReviewUri) || '' %>" />
@@ -23,11 +24,11 @@
               <div class="muted"><%= [loc.storefrontAddress.addressLines, loc.storefrontAddress.locality].flat().filter(Boolean).join(', ') %></div>
             <% } %>
           </div>
-          <button type="submit">Connect this business</button>
+          <button class="btn" type="submit">Connect this business</button>
         </form>
       <% }) %>
     <% }) %>
-    <p><a href="/">Back to dashboard</a></p>
+    <p><a href="/dashboard">Back to dashboard</a></p>
   </div>
 </body>
 </html>

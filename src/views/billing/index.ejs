@@ -8,7 +8,14 @@
 <body>
   <header class="topbar">
     <h1>Sanad Review</h1>
-    <form method="POST" action="/logout"><button class="link-btn" type="submit">Log out</button></form>
+    <nav class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/settings">Settings</a>
+      <form method="POST" action="/logout" style="display:inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <button class="link-btn" type="submit">Log out</button>
+      </form>
+    </nav>
   </header>
 
   <div class="container narrow">
@@ -36,6 +43,7 @@
                 <% } else { %>
                   <span class="badge"><%= a.sub_status && a.sub_status !== 'incomplete' ? a.sub_status : 'Needs payment' %></span>
                   <form method="POST" action="/billing/<%= a.id %>/checkout">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
                     <button class="btn btn-pay-black" type="submit">Pay $35/mo</button>
                   </form>
                 <% } %>
@@ -46,6 +54,7 @@
 
         <% if (hasStripeCustomer) { %>
           <form method="POST" action="/billing/portal">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
             <button class="btn secondary" type="submit">Manage Subscriptions / Payment Method</button>
           </form>
         <% } %>

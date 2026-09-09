@@ -2,11 +2,14 @@ const express = require("express");
 const router = express.Router();
 const QRCode = require("qrcode");
 const db = require("../db");
-const { requireAuth, isAccountActive } = require("../middleware");
-const { VALID_TONES } = require("../replyGenerator");
-const { generateInsights } = require("../insightsGenerator");
-const { buildWeeklyDigest } = require("../digestGenerator");
-const { sendWeeklyDigest } = require("../emailer");
+const { requireAuth, isAccountActive } = require("../middleware/auth");
+const { VALID_TONES } = require("../services/replyGenerator");
+const { generateInsights } = require("../services/insightsGenerator");
+const { buildWeeklyDigest } = require("../services/digestGenerator");
+const { sendWeeklyDigest } = require("../services/emailer");
+const { getWeeklyRatingTrend, renderTrendSvg } = require("../services/analytics");
+const { env } = require("../config/env");
+const logger = require("../config/logger");
 
 router.get("/dashboard", requireAuth, (req, res) => {
   const accounts = db
@@ -21,6 +24,7 @@ router.get("/dashboard", requireAuth, (req, res) => {
 
   for (const a of accounts) {
     a.isActive = a.sub_status === "active" || a.sub_status === "trialing";
+    a.templates = db.prepare(`SELECT * FROM reply_templates WHERE account_id = ? ORDER BY created_at DESC`).all(a.id);
   }
 
   const stats = db
@@ -66,9 +70,12 @@ router.get("/dashboard", requireAuth, (req, res) => {
     )
     .all(...params);
 
-  const appBaseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+  const trend = getWeeklyRatingTrend(req.user.id);
+  const trendSvg = renderTrendSvg(trend);
 
-  res.render("dashboard", {
+  const appBaseUrl = env.appBaseUrl || `${req.protocol}://${req.get("host")}`;
+
+  res.render("dashboard/index", {
     accounts,
     reviews,
     user: req.user,
@@ -78,6 +85,7 @@ router.get("/dashboard", requireAuth, (req, res) => {
     tones: VALID_TONES,
     digestSent: req.query.digestSent,
     appBaseUrl,
+    trendSvg,
   });
 });
 
@@ -119,11 +127,7 @@ router.post("/accounts/:id/settings", requireAuth, (req, res) => {
   const tone = VALID_TONES.includes(req.body.replyTone) ? req.body.replyTone : "friendly";
   const customKeywords = (req.body.customKeywords || "").slice(0, 1000);
 
-  db.prepare(`UPDATE accounts SET reply_tone = ?, custom_risk_keywords = ? WHERE id = ?`).run(
-    tone,
-    customKeywords || null,
-    accountId
-  );
+  db.prepare(`UPDATE accounts SET reply_tone = ?, custom_risk_keywords = ? WHERE id = ?`).run(tone, customKeywords || null, accountId);
 
   res.redirect("/dashboard");
 });
@@ -137,10 +141,7 @@ router.post("/accounts/:id/insights", requireAuth, async (req, res, next) => {
     if (!isAccountActive(accountId)) return res.redirect("/billing");
 
     const reviews = db
-      .prepare(
-        `SELECT star_rating, comment FROM reviews
-         WHERE account_id = ? AND review_create_time >= datetime('now', '-90 days')`
-      )
+      .prepare(`SELECT star_rating, comment FROM reviews WHERE account_id = ? AND review_create_time >= datetime('now', '-90 days')`)
       .all(accountId);
 
     const { summary, source } = await generateInsights({
@@ -149,9 +150,11 @@ router.post("/accounts/:id/insights", requireAuth, async (req, res, next) => {
       customKeywords: account.custom_risk_keywords,
     });
 
-    db.prepare(
-      `UPDATE accounts SET insight_summary = ?, insight_generated_at = strftime('%s','now'), insight_source = ? WHERE id = ?`
-    ).run(summary, source, accountId);
+    db.prepare(`UPDATE accounts SET insight_summary = ?, insight_generated_at = strftime('%s','now'), insight_source = ? WHERE id = ?`).run(
+      summary,
+      source,
+      accountId
+    );
 
     res.redirect("/dashboard");
   } catch (err) {
@@ -165,11 +168,17 @@ router.post("/digest/send-now", requireAuth, async (req, res, next) => {
     const digest = await buildWeeklyDigest(req.user);
     if (!digest) return res.redirect("/dashboard");
 
-    db.prepare(
-      `UPDATE users SET last_digest_summary = ?, last_digest_sent_at = strftime('%s','now') WHERE id = ?`
-    ).run(digest.narrative, req.user.id);
+    db.prepare(`UPDATE users SET last_digest_summary = ?, last_digest_sent_at = strftime('%s','now') WHERE id = ?`).run(
+      digest.narrative,
+      req.user.id
+    );
 
-    const sent = await sendWeeklyDigest({ toEmail: req.user.email, subject: digest.subject, narrative: digest.narrative });
+    let sent = false;
+    try {
+      sent = await sendWeeklyDigest({ toEmail: req.user.email, subject: digest.subject, narrative: digest.narrative });
+    } catch (err) {
+      logger.warn({ err: err.message }, "Failed to send weekly digest email");
+    }
     res.redirect(`/dashboard?digestSent=${sent ? "1" : "0"}`);
   } catch (err) {
     next(err);
@@ -199,11 +208,7 @@ router.get("/reviews/export.csv", requireAuth, (req, res) => {
   const header = ["Date", "Business", "Reviewer", "Stars", "Comment", "Status", "Reply"];
   const lines = [header.map(escapeCsv).join(",")];
   for (const r of rows) {
-    lines.push(
-      [r.review_create_time, r.business_name, r.reviewer_name, r.star_rating, r.comment, r.status, r.draft_text]
-        .map(escapeCsv)
-        .join(",")
-    );
+    lines.push([r.review_create_time, r.business_name, r.reviewer_name, r.star_rating, r.comment, r.status, r.draft_text].map(escapeCsv).join(","));
   }
 
   const csv = "﻿" + lines.join("\n"); // BOM so Excel reads UTF-8 correctly

@@ -1,7 +1,9 @@
 // يجمع التقرير الأسبوعي لعميل معين: إحصائيات هالأسبوع مقابل اللي قبله، أبرز تقييم إيجابي وسلبي،
 // وأهم نمط شكوى متكرر (من التحليل الذكي المخزّن مسبقاً لكل نشاط). يرجّع نص جاهز للبريد وللوحة.
 
-const db = require("./db");
+const db = require("../db");
+const { env } = require("../config/env");
+const logger = require("../config/logger");
 
 const ACTIVE_JOIN = `JOIN subscriptions s ON s.account_id = a.id AND s.status IN ('active','trialing')`;
 
@@ -49,11 +51,7 @@ function getWorstReview(userId) {
 
 function getTopInsightLines(userId) {
   const accounts = db
-    .prepare(
-      `SELECT a.business_name, a.insight_summary FROM accounts a
-       ${ACTIVE_JOIN}
-       WHERE a.user_id = ? AND a.insight_summary IS NOT NULL`
-    )
+    .prepare(`SELECT a.business_name, a.insight_summary FROM accounts a ${ACTIVE_JOIN} WHERE a.user_id = ? AND a.insight_summary IS NOT NULL`)
     .all(userId);
 
   const lines = [];
@@ -103,7 +101,7 @@ function templateNarrative({ businessName, stats, bestReview, worstReview, insig
 
 async function claudeNarrative({ businessName, stats, bestReview, worstReview, insightLines }) {
   const Anthropic = require("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: env.anthropicApiKey });
 
   const facts = `Business name: ${businessName}
 Reviews this week: ${stats.this_week_count || 0}
@@ -130,11 +128,9 @@ Do not invent numbers or details not given to you. Do not write a title or intro
   return text;
 }
 
-// يرجّع null لو ما عند العميل أي نشاط تجاري مربوط أصلاً
+// يرجّع null لو ما عند العميل أي نشاط تجاري مفعّل أصلاً
 async function buildWeeklyDigest(user) {
-  const accounts = db
-    .prepare(`SELECT a.id FROM accounts a ${ACTIVE_JOIN} WHERE a.user_id = ?`)
-    .all(user.id);
+  const accounts = db.prepare(`SELECT a.id FROM accounts a ${ACTIVE_JOIN} WHERE a.user_id = ?`).all(user.id);
   if (!accounts.length) return null;
 
   const stats = getStats(user.id);
@@ -145,11 +141,11 @@ async function buildWeeklyDigest(user) {
   const context = { businessName: user.business_name, stats, bestReview, worstReview, insightLines };
 
   let narrative;
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (env.anthropicApiKey) {
     try {
       narrative = await claudeNarrative(context);
     } catch (err) {
-      console.error("Claude digest narrative failed, falling back to template:", err.message);
+      logger.warn({ err: err.message }, "Claude digest narrative failed, falling back to template");
     }
   }
   if (!narrative) narrative = templateNarrative(context);

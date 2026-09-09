@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sign Up - Sanad Review</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="login-box">
+      <h1>Sanad Review</h1>
+      <p>Create your business account</p>
+      <% if (error) { %>
+        <p class="error"><%= error %></p>
+      <% } %>
+      <form method="POST" action="/signup">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <input type="text" name="businessName" placeholder="Business name" value="<%= values.businessName || '' %>" required />
+        <input type="email" name="email" placeholder="Email address" value="<%= values.email || '' %>" required />
+        <input type="password" name="password" placeholder="Password (min. 8 characters)" minlength="8" required />
+        <button type="submit">Create Account</button>
+      </form>
+      <p class="muted small">Already have an account? <a href="/login">Log in</a></p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,4 +1,4 @@
-const db = require("./db");
+const db = require("../db");
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.redirect("/login");
@@ -8,6 +8,7 @@ function requireAuth(req, res, next) {
     return;
   }
   req.user = user;
+  res.locals.user = user;
   next();
 }
 

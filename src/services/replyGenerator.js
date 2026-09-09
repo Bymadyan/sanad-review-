@@ -1,6 +1,9 @@
 // يولّد رد مقترح لتقييم واحد. يحاول استخدام Claude إذا كان في ANTHROPIC_API_KEY،
 // وإلا يرجع لقوالب جاهزة عربي/إنجليزي حسب لغة التقييم ونبرة الرد المختارة. النتيجة دايماً "مسودة" فقط.
 
+const { env } = require("../config/env");
+const logger = require("../config/logger");
+
 function isArabic(text) {
   return /[؀-ۿ]/.test(text || "");
 }
@@ -79,12 +82,12 @@ const TONE_INSTRUCTIONS = {
 
 async function claudeReply({ businessName, starRating, comment, reviewerName, tone }) {
   const Anthropic = require("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: env.anthropicApiKey });
 
   const toneInstruction = TONE_INSTRUCTIONS[normalizeTone(tone)];
 
   const system = `أنت تكتب مسودة رد على تقييم عميل على Google Business Profile نيابة عن صاحب النشاط التجاري "${businessName}".
-اكتب رد قصير (2-4 جمل)، بنفس لغة التقييم (عربي أو إنجليزي)، ${toneInstruction}
+اكتب رد قصير (2-4 جمل)، بنفس لغة التقييم (أي لغة كانت)، ${toneInstruction}
 لو التقييم 4 أو 5 نجوم: اشكر العميل بحرارة واذكر تفصيل من تقييمه لو موجود.
 لو التقييم 3 نجوم: اشكره واعترف بالملاحظة بدون مبالغة في الاعتذار.
 لو التقييم 1 أو 2: اعتذر بصدق ومهنية، بدون تبرير مفرط، واعرض حل المشكلة خارج المنصة إذا أمكن.
@@ -108,12 +111,12 @@ async function claudeReply({ businessName, starRating, comment, reviewerName, to
 }
 
 async function generateDraftReply(review) {
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (env.anthropicApiKey) {
     try {
       const text = await claudeReply(review);
       return { text, generatedBy: "claude" };
     } catch (err) {
-      console.error("Claude generation failed, falling back to template:", err.message);
+      logger.warn({ err: err.message }, "Claude reply generation failed, falling back to template");
     }
   }
   return { text: templateReply(review), generatedBy: "template" };

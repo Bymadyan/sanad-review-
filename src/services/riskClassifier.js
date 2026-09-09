@@ -46,10 +46,7 @@ const RISK_KEYWORDS = [
 // customKeywords: نص خام من إعدادات النشاط التجاري، كلمات مفصولة بفواصل
 function parseCustomKeywords(customKeywords) {
   if (!customKeywords) return [];
-  return customKeywords
-    .split(",")
-    .map((w) => w.trim())
-    .filter(Boolean);
+  return customKeywords.split(",").map((w) => w.trim()).filter(Boolean);
 }
 
 function containsRiskKeyword(text, customKeywords) {

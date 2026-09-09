@@ -3,6 +3,8 @@
 // يستخدم Claude لو مفعّل، وإلا يرجع لعدّ تكرار الكلمات (نفس قائمة كلمات الخطر) كبديل بدون تكلفة.
 
 const { RISK_KEYWORDS, parseCustomKeywords } = require("./riskClassifier");
+const { env } = require("../config/env");
+const logger = require("../config/logger");
 
 const MIN_REVIEWS_FOR_INSIGHT = 3;
 
@@ -29,18 +31,14 @@ function keywordFrequencyInsight(reviews, customKeywords) {
     return "No clear recurring pattern found in recent reviews — complaints are varied and not concentrated on one cause.";
   }
 
-  return sorted
-    .map(([kw, count]) => `• "${kw}" — mentioned in ${count} ${count === 1 ? "review" : "reviews"}`)
-    .join("\n");
+  return sorted.map(([kw, count]) => `• "${kw}" — mentioned in ${count} ${count === 1 ? "review" : "reviews"}`).join("\n");
 }
 
 async function claudeInsight(reviews, businessName) {
   const Anthropic = require("@anthropic-ai/sdk");
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const client = new Anthropic({ apiKey: env.anthropicApiKey });
 
-  const reviewsText = reviews
-    .map((r) => `- (${r.star_rating} stars) ${r.comment}`)
-    .join("\n");
+  const reviewsText = reviews.map((r) => `- (${r.star_rating} stars) ${r.comment}`).join("\n");
 
   const system = `You are a business analyst helping the owner of a business called "${businessName}" understand their negative and neutral customer reviews.
 Read the given reviews and extract the top 3 to 5 patterns or complaint themes that actually recur (not every individual complaint, only ones that repeat).
@@ -61,7 +59,7 @@ Do not write an introduction or conclusion, just the bullet points directly.`;
   return text;
 }
 
-// يرجع { summary, source } أو null لو ما فيه بيانات كافية
+// يرجع { summary, source }
 async function generateInsights({ businessName, reviews, customKeywords }) {
   const negativeOrNeutral = reviews.filter((r) => r.star_rating <= 3 && r.comment);
 
@@ -72,12 +70,12 @@ async function generateInsights({ businessName, reviews, customKeywords }) {
     };
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
+  if (env.anthropicApiKey) {
     try {
       const summary = await claudeInsight(negativeOrNeutral, businessName);
       return { summary, source: "claude" };
     } catch (err) {
-      console.error("Claude insight generation failed, falling back to keyword frequency:", err.message);
+      logger.warn({ err: err.message }, "Claude insight generation failed, falling back to keyword frequency");
     }
   }
 

@@ -1,14 +1,11 @@
 const { OAuth2Client } = require("google-auth-library");
-const db = require("./db");
+const db = require("../db");
+const { env } = require("../config/env");
 
 const SCOPES = ["https://www.googleapis.com/auth/business.manage"];
 
 function newOAuthClient() {
-  return new OAuth2Client(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
-  );
+  return new OAuth2Client(env.google.clientId, env.google.clientSecret, env.google.redirectUri);
 }
 
 function getAuthUrl() {
@@ -36,15 +33,9 @@ async function getAuthedClientForAccount(account) {
   });
 
   client.on("tokens", (tokens) => {
-    const update = db.prepare(
+    db.prepare(
       `UPDATE accounts SET access_token = ?, token_expiry = ?, refresh_token = COALESCE(?, refresh_token) WHERE id = ?`
-    );
-    update.run(
-      tokens.access_token || account.access_token,
-      tokens.expiry_date || account.token_expiry,
-      tokens.refresh_token || null,
-      account.id
-    );
+    ).run(tokens.access_token || account.access_token, tokens.expiry_date || account.token_expiry, tokens.refresh_token || null, account.id);
   });
 
   // يجدد التوكن تلقائياً إذا كان منتهي أو قريب من الانتهاء
@@ -70,9 +61,7 @@ async function apiRequest(client, url, options = {}) {
     json = { raw: text };
   }
   if (!res.ok) {
-    const err = new Error(
-      `Google API error ${res.status}: ${JSON.stringify(json)}`
-    );
+    const err = new Error(`Google API error ${res.status}: ${JSON.stringify(json)}`);
     err.status = res.status;
     err.body = json;
     throw err;
@@ -82,21 +71,16 @@ async function apiRequest(client, url, options = {}) {
 
 // يجيب كل الحسابات (accounts/{id}) المرتبطة بالمستخدم اللي سوى تسجيل الدخول
 async function listGoogleAccounts(client) {
-  const data = await apiRequest(
-    client,
-    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts"
-  );
+  const data = await apiRequest(client, "https://mybusinessaccountmanagement.googleapis.com/v1/accounts");
   return data.accounts || [];
 }
 
-// يجيب المواقع/النشاطات التجارية تحت حساب Google معين
+// يجيب المواقع/النشاطات التجارية تحت حساب Google معين، بما فيها رابط كتابة تقييم جديد
 async function listLocations(client, accountName) {
   const readMask = "name,title,storefrontAddress,phoneNumbers,metadata.newReviewUri";
   const data = await apiRequest(
     client,
-    `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=${encodeURIComponent(
-      readMask
-    )}&pageSize=100`
+    `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=${encodeURIComponent(readMask)}&pageSize=100`
   );
   return data.locations || [];
 }
@@ -106,13 +90,11 @@ async function listReviews(client, locationName, pageToken) {
   const url = new URL(`https://mybusiness.googleapis.com/v4/${locationName}/reviews`);
   if (pageToken) url.searchParams.set("pageToken", pageToken);
   const data = await apiRequest(client, url.toString());
-  return {
-    reviews: data.reviews || [],
-    nextPageToken: data.nextPageToken || null,
-  };
+  return { reviews: data.reviews || [], nextPageToken: data.nextPageToken || null };
 }
 
-// ينشر رد على تقييم في Google. لا تستدعِ هذه الدالة إلا عند ضغط المستخدم على زر "نشر" يدوياً.
+// ينشر رد على تقييم في Google. لا تستدعِ هذه الدالة إلا عند ضغط المستخدم على زر "نشر" يدوياً
+// (أو داخل مسار النشر التلقائي المُقيّد صراحة بموافقة صاحب النشاط).
 async function publishReply(client, reviewResourceName, replyText) {
   return apiRequest(client, `https://mybusiness.googleapis.com/v4/${reviewResourceName}/reply`, {
     method: "PUT",

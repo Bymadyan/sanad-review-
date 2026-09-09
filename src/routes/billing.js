@@ -1,18 +1,19 @@
 const express = require("express");
 const router = express.Router();
+const webhookRouter = express.Router();
 const db = require("../db");
-const stripe = require("../stripeClient");
-const { requireAuth, ACTIVE_STATUSES } = require("../middleware");
+const stripe = require("../services/stripeClient");
+const { requireAuth, ACTIVE_STATUSES } = require("../middleware/auth");
+const { env } = require("../config/env");
+const logger = require("../config/logger");
 
 function baseUrl(req) {
-  return process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
+  return env.appBaseUrl || `${req.protocol}://${req.get("host")}`;
 }
 
 // يجيب Stripe customer id لأي اشتراك سابق لهذا المستخدم (نعيد استخدام نفس العميل لكل أنشطته التجارية)
 function findExistingCustomerId(userId) {
-  const row = db
-    .prepare(`SELECT stripe_customer_id FROM subscriptions WHERE user_id = ? AND stripe_customer_id IS NOT NULL LIMIT 1`)
-    .get(userId);
+  const row = db.prepare(`SELECT stripe_customer_id FROM subscriptions WHERE user_id = ? AND stripe_customer_id IS NOT NULL LIMIT 1`).get(userId);
   return row && row.stripe_customer_id;
 }
 
@@ -29,7 +30,7 @@ router.get("/billing", requireAuth, (req, res) => {
 
   const hasStripeCustomer = !!findExistingCustomerId(req.user.id);
 
-  res.render("billing", { accounts, stripeConfigured: !!stripe, hasStripeCustomer, activeStatuses: ACTIVE_STATUSES });
+  res.render("billing/index", { accounts, stripeConfigured: !!stripe, hasStripeCustomer, activeStatuses: ACTIVE_STATUSES });
 });
 
 // ينشئ جلسة دفع اشتراك شهري 35$ لنشاط تجاري معين (كل نشاط تجاري له اشتراكه الخاص)
@@ -39,7 +40,7 @@ router.post("/billing/:accountId/checkout", requireAuth, async (req, res, next) 
     const account = db.prepare(`SELECT * FROM accounts WHERE id = ? AND user_id = ?`).get(accountId, req.user.id);
     if (!account) return res.status(404).send("Business not found");
 
-    if (!stripe || !process.env.STRIPE_PRICE_ID) {
+    if (!stripe || !env.stripe.priceId) {
       return res.status(500).send("Payments aren't enabled yet (STRIPE_SECRET_KEY / STRIPE_PRICE_ID not configured)");
     }
 
@@ -53,15 +54,12 @@ router.post("/billing/:accountId/checkout", requireAuth, async (req, res, next) 
       customerId = customer.id;
     }
 
-    const metadata = {
-      sanad_review_user_id: String(req.user.id),
-      sanad_review_account_id: String(accountId),
-    };
+    const metadata = { sanad_review_user_id: String(req.user.id), sanad_review_account_id: String(accountId) };
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: env.stripe.priceId, quantity: 1 }],
       success_url: `${baseUrl(req)}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl(req)}/billing`,
       metadata,
@@ -79,18 +77,11 @@ router.get("/billing/success", requireAuth, async (req, res, next) => {
   try {
     if (!stripe || !req.query.session_id) return res.redirect("/billing");
 
-    const session = await stripe.checkout.sessions.retrieve(req.query.session_id, {
-      expand: ["subscription"],
-    });
+    const session = await stripe.checkout.sessions.retrieve(req.query.session_id, { expand: ["subscription"] });
 
     const accountId = Number(session.metadata && session.metadata.sanad_review_account_id);
     if (session.subscription && accountId) {
-      upsertSubscriptionForAccount({
-        userId: req.user.id,
-        accountId,
-        customerId: session.customer,
-        subscription: session.subscription,
-      });
+      upsertSubscriptionForAccount({ userId: req.user.id, accountId, customerId: session.customer, subscription: session.subscription });
     }
 
     res.redirect("/dashboard");
@@ -99,7 +90,7 @@ router.get("/billing/success", requireAuth, async (req, res, next) => {
   }
 });
 
-// بوابة إدارة الاشتراكات المستضافة من Stripe (تغيير بطاقة، إلغاء أي اشتراك، فواتير سابقة) — بوابة واحدة تدير كل الأنشطة التجارية لهذا العميل
+// بوابة إدارة الاشتراكات المستضافة من Stripe — بوابة واحدة تدير كل الأنشطة التجارية لهذا العميل
 router.post("/billing/portal", requireAuth, async (req, res, next) => {
   try {
     const customerId = findExistingCustomerId(req.user.id);
@@ -131,17 +122,17 @@ function upsertSubscriptionForAccount({ userId, accountId, customerId, subscript
   }
 }
 
-// Stripe يستدعي هذا الرابط مباشرة (لا يمر عبر جلسة تسجيل الدخول) — يحتاج body خام للتحقق من التوقيع
-router.post("/billing/webhook", express.raw({ type: "application/json" }), (req, res) => {
-  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+// Stripe يستدعي هذا الرابط مباشرة (لا يمر عبر جلسة تسجيل الدخول أو CSRF) — يحتاج body خام للتحقق من التوقيع
+webhookRouter.post("/billing/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  if (!stripe || !env.stripe.webhookSecret) {
     return res.status(500).send("Webhook not configured");
   }
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(req.body, req.headers["stripe-signature"], process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(req.body, req.headers["stripe-signature"], env.stripe.webhookSecret);
   } catch (err) {
-    console.error("Stripe webhook signature verification failed:", err.message);
+    logger.warn({ err: err.message }, "Stripe webhook signature verification failed");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -173,10 +164,10 @@ router.post("/billing/webhook", express.raw({ type: "application/json" }), (req,
       }
     }
   } catch (err) {
-    console.error("Error handling Stripe webhook:", err);
+    logger.error({ err: err.message }, "Error handling Stripe webhook");
   }
 
   res.json({ received: true });
 });
 
-module.exports = router;
+module.exports = { router, webhookRouter };

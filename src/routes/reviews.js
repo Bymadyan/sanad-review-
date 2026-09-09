@@ -1,24 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
-const google = require("../googleClient");
-const { generateDraftReply } = require("../replyGenerator");
-const { isLowRisk } = require("../riskClassifier");
-const { requireAuth, ACTIVE_STATUSES } = require("../middleware");
-const { notifyNewReviews } = require("../emailer");
+const google = require("../services/googleClient");
+const { generateDraftReply } = require("../services/replyGenerator");
+const { isLowRisk } = require("../services/riskClassifier");
+const { requireAuth, ACTIVE_STATUSES } = require("../middleware/auth");
+const { notifyNewReviews } = require("../services/emailer");
+const logger = require("../config/logger");
 
 router.use(requireAuth);
 
-// يجيب التقييمات الجديدة فقط من Google لكل الأنشطة التجارية اللي عندها اشتراك فعّال (كل نشاط تجاري يحتاج اشتراكه الخاص)
+// يجيب التقييمات الجديدة فقط من Google لكل الأنشطة التجارية اللي عندها اشتراك فعّال
 router.post("/sync", async (req, res, next) => {
   try {
     const accounts = db
-      .prepare(
-        `SELECT a.* FROM accounts a
-         JOIN subscriptions s ON s.account_id = a.id
-         WHERE a.user_id = ? AND s.status IN ('active','trialing')`
-      )
+      .prepare(`SELECT a.* FROM accounts a JOIN subscriptions s ON s.account_id = a.id WHERE a.user_id = ? AND s.status IN ('active','trialing')`)
       .all(req.user.id);
+
     let newCount = 0;
     let needsReviewCount = 0;
 
@@ -31,9 +29,7 @@ router.post("/sync", async (req, res, next) => {
         pageToken = nextPageToken;
 
         for (const gr of reviews) {
-          const exists = db
-            .prepare(`SELECT id FROM reviews WHERE account_id = ? AND google_review_id = ?`)
-            .get(account.id, gr.reviewId);
+          const exists = db.prepare(`SELECT id FROM reviews WHERE account_id = ? AND google_review_id = ?`).get(account.id, gr.reviewId);
           if (exists) continue;
 
           const starRatingMap = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 };
@@ -46,15 +42,7 @@ router.post("/sync", async (req, res, next) => {
               `INSERT INTO reviews (account_id, google_review_id, reviewer_name, star_rating, comment, review_create_time, has_owner_reply)
                VALUES (?, ?, ?, ?, ?, ?, ?)`
             )
-            .run(
-              account.id,
-              gr.reviewId,
-              (gr.reviewer && gr.reviewer.displayName) || "",
-              starRating,
-              comment,
-              gr.createTime || null,
-              hasOwnerReply
-            );
+            .run(account.id, gr.reviewId, (gr.reviewer && gr.reviewer.displayName) || "", starRating, comment, gr.createTime || null, hasOwnerReply);
 
           newCount++;
 
@@ -69,8 +57,7 @@ router.post("/sync", async (req, res, next) => {
             });
 
             const eligibleForAutoPublish =
-              account.auto_publish_positive &&
-              isLowRisk({ starRating, comment, customKeywords: account.custom_risk_keywords });
+              account.auto_publish_positive && isLowRisk({ starRating, comment, customKeywords: account.custom_risk_keywords });
 
             if (eligibleForAutoPublish) {
               // نشر تلقائي فوري — فقط لتقييمات آمنة (4-5 نجوم بدون أي إشارة سلبية بالتعليق)
@@ -84,9 +71,11 @@ router.post("/sync", async (req, res, next) => {
               ).run(info.lastInsertRowid, text, generatedBy);
               db.prepare(`UPDATE reviews SET has_owner_reply = 1 WHERE id = ?`).run(info.lastInsertRowid);
             } else {
-              db.prepare(
-                `INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'draft', ?)`
-              ).run(info.lastInsertRowid, text, generatedBy);
+              db.prepare(`INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'draft', ?)`).run(
+                info.lastInsertRowid,
+                text,
+                generatedBy
+              );
               needsReviewCount++;
             }
           }
@@ -97,8 +86,8 @@ router.post("/sync", async (req, res, next) => {
     }
 
     if (needsReviewCount > 0) {
-      notifyNewReviews({ toEmail: req.user.email, businessName: req.user.business_name, count: needsReviewCount }).catch(
-        (err) => console.error("Failed to send new-review notification email:", err.message)
+      notifyNewReviews({ toEmail: req.user.email, businessName: req.user.business_name, count: needsReviewCount }).catch((err) =>
+        logger.warn({ err: err.message }, "Failed to send new-review notification email")
       );
     }
 
@@ -141,13 +130,12 @@ router.post("/:id/draft", (req, res, next) => {
 
     const existing = db.prepare(`SELECT id FROM drafts WHERE review_id = ?`).get(reviewId);
     if (existing) {
-      db.prepare(
-        `UPDATE drafts SET draft_text = ?, status = 'edited', updated_at = strftime('%s','now') WHERE review_id = ?`
-      ).run(draftText, reviewId);
+      db.prepare(`UPDATE drafts SET draft_text = ?, status = 'edited', updated_at = strftime('%s','now') WHERE review_id = ?`).run(
+        draftText,
+        reviewId
+      );
     } else {
-      db.prepare(
-        `INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'edited', 'manual')`
-      ).run(reviewId, draftText);
+      db.prepare(`INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'edited', 'manual')`).run(reviewId, draftText);
     }
 
     res.redirect("/dashboard#review-" + reviewId);
@@ -174,13 +162,13 @@ router.post("/:id/regenerate", async (req, res, next) => {
 
     const existing = db.prepare(`SELECT id FROM drafts WHERE review_id = ?`).get(reviewId);
     if (existing) {
-      db.prepare(
-        `UPDATE drafts SET draft_text = ?, status = 'draft', generated_by = ?, updated_at = strftime('%s','now') WHERE review_id = ?`
-      ).run(text, generatedBy, reviewId);
+      db.prepare(`UPDATE drafts SET draft_text = ?, status = 'draft', generated_by = ?, updated_at = strftime('%s','now') WHERE review_id = ?`).run(
+        text,
+        generatedBy,
+        reviewId
+      );
     } else {
-      db.prepare(
-        `INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'draft', ?)`
-      ).run(reviewId, text, generatedBy);
+      db.prepare(`INSERT INTO drafts (review_id, draft_text, status, generated_by) VALUES (?, ?, 'draft', ?)`).run(reviewId, text, generatedBy);
     }
 
     res.redirect("/dashboard#review-" + reviewId);
@@ -199,9 +187,7 @@ router.post("/:id/publish", async (req, res, next) => {
 
     // لو المستخدم عدّل النص في الصندوق ولحقّ الضغط على نشر مباشرة بدون حفظ منفصل، نحفظ آخر نص كتبه أولاً
     if (typeof req.body.draftText === "string" && req.body.draftText.trim()) {
-      db.prepare(
-        `UPDATE drafts SET draft_text = ?, updated_at = strftime('%s','now') WHERE review_id = ?`
-      ).run(req.body.draftText, reviewId);
+      db.prepare(`UPDATE drafts SET draft_text = ?, updated_at = strftime('%s','now') WHERE review_id = ?`).run(req.body.draftText, reviewId);
     }
 
     const draft = db.prepare(`SELECT draft_text FROM drafts WHERE review_id = ?`).get(reviewId);
@@ -215,9 +201,7 @@ router.post("/:id/publish", async (req, res, next) => {
 
     await google.publishReply(client, reviewResourceName, draft.draft_text);
 
-    db.prepare(
-      `UPDATE drafts SET status = 'published', published_at = strftime('%s','now') WHERE review_id = ?`
-    ).run(reviewId);
+    db.prepare(`UPDATE drafts SET status = 'published', published_at = strftime('%s','now') WHERE review_id = ?`).run(reviewId);
     db.prepare(`UPDATE reviews SET has_owner_reply = 1 WHERE id = ?`).run(reviewId);
 
     res.redirect("/dashboard#review-" + reviewId);
