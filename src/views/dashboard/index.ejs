@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sanad Review - Dashboard</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sanad Review</h1>
+    <nav class="nav-links">
+      <span class="muted small"><%= user.business_name %></span>
+      <a href="/settings">Settings</a>
+      <a href="/billing">Subscription</a>
+      <form method="POST" action="/logout" style="display:inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <button class="link-btn" type="submit">Log out</button>
+      </form>
+    </nav>
+  </header>
+
+  <div class="container">
+    <% if (accounts.length) { %>
+      <section class="digest-card">
+        <div class="digest-header">
+          <h2>📮 Weekly Digest</h2>
+          <% if (user.last_digest_sent_at) { %>
+            <span class="muted small">Last sent: <%= new Date(user.last_digest_sent_at * 1000).toLocaleString('en-US') %></span>
+          <% } %>
+        </div>
+        <% if (typeof digestSent !== 'undefined' && digestSent === '1') { %>
+          <p class="badge published">✅ Digest sent to your email</p>
+        <% } else if (typeof digestSent !== 'undefined' && digestSent === '0') { %>
+          <p class="muted">The digest was generated and you can see it below, but no email was sent (RESEND_API_KEY not configured).</p>
+        <% } %>
+        <% if (user.last_digest_summary) { %>
+          <pre class="insight-summary"><%= user.last_digest_summary %></pre>
+        <% } else { %>
+          <p class="muted">Generated automatically every Monday and delivered by email. You can try it now without waiting.</p>
+        <% } %>
+        <form method="POST" action="/digest/send-now">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <button type="submit" class="btn secondary tiny">✉️ Send Test Now</button>
+        </form>
+      </section>
+    <% } %>
+
+    <% if (stats && stats.total) { %>
+      <section class="stats-row">
+        <div class="stat-tile">
+          <div class="stat-value"><%= stats.total %></div>
+          <div class="stat-label">Total Reviews</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value">★ <%= stats.avg_rating || '-' %></div>
+          <div class="stat-label">Average Rating</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value"><%= stats.needs_reply || 0 %></div>
+          <div class="stat-label">Need Your Reply</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value"><%= stats.published || 0 %></div>
+          <div class="stat-label">Replied</div>
+        </div>
+      </section>
+    <% } %>
+
+    <% if (trendSvg) { %>
+      <section class="card-block trend-card">
+        <div class="trend-copy">
+          <h3>📈 Rating Trend</h3>
+          <p class="muted small">Average rating per week, last 8 weeks (all active businesses combined).</p>
+        </div>
+        <%- trendSvg %>
+      </section>
+    <% } %>
+
+    <% if (accounts.some(a => a.isActive)) { %>
+      <section class="insights">
+        <h2>📊 Smart Insights — Top Recurring Complaint Themes</h2>
+        <% accounts.filter(a => a.isActive).forEach(function(a) { %>
+          <div class="insight-card">
+            <div class="insight-header">
+              <strong><%= a.business_name %></strong>
+              <% if (a.insight_generated_at) { %>
+                <span class="muted small">Last updated: <%= new Date(a.insight_generated_at * 1000).toLocaleString('en-US') %></span>
+              <% } %>
+            </div>
+            <% if (a.insight_summary) { %>
+              <pre class="insight-summary"><%= a.insight_summary %></pre>
+            <% } else { %>
+              <p class="muted">No analysis yet for this business. Click the button below.</p>
+            <% } %>
+            <form method="POST" action="/accounts/<%= a.id %>/insights">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <button type="submit" class="btn secondary tiny">🔄 <%= a.insight_summary ? 'Refresh Analysis' : 'Analyze My Reviews Now' %></button>
+            </form>
+          </div>
+        <% }) %>
+      </section>
+    <% } %>
+
+    <% if (accounts.some(a => a.isActive && a.google_review_link)) { %>
+      <section class="insights">
+        <h2>📣 Get More Reviews</h2>
+        <% accounts.filter(a => a.isActive && a.google_review_link).forEach(function(a) { %>
+          <div class="review-link-card">
+            <div>
+              <strong><%= a.business_name %></strong>
+              <p class="muted small">Share this QR code or link — anyone who scans or clicks it goes straight to your Google review page.</p>
+              <div class="copy-row">
+                <input type="text" readonly value="<%= appBaseUrl %>/r/<%= a.id %>" id="link-<%= a.id %>" onclick="this.select()" />
+                <button type="button" class="btn secondary tiny" onclick="navigator.clipboard.writeText(document.getElementById('link-<%= a.id %>').value)">Copy Link</button>
+              </div>
+            </div>
+            <img class="review-qr" src="/accounts/<%= a.id %>/qr.png" alt="QR code for <%= a.business_name %> reviews" width="140" height="140" />
+          </div>
+        <% }) %>
+      </section>
+    <% } %>
+
+    <section class="accounts">
+      <h2>Connected Businesses</h2>
+      <% if (!accounts.length) { %>
+        <p>No business connected yet.</p>
+        <a class="btn" href="/auth/google">+ Connect Google Business Profile</a>
+      <% } else { %>
+        <ul>
+          <% accounts.forEach(function(a) { %>
+            <li class="account-item">
+              <div class="account-row">
+                <div>
+                  <strong><%= a.business_name %></strong>
+                  <% if (a.isActive) { %>
+                    <span class="muted">
+                      <% if (a.last_synced_at) { %>
+                        Last synced: <%= new Date(a.last_synced_at * 1000).toLocaleString('en-US') %>
+                      <% } else { %>
+                        No sync yet
+                      <% } %>
+                    </span>
+                  <% } else { %>
+                    <span class="badge">Needs payment</span>
+                  <% } %>
+                </div>
+                <% if (a.isActive) { %>
+                  <form method="POST" action="/accounts/<%= a.id %>/auto-publish" class="auto-publish-toggle">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <input type="hidden" name="enabled" value="<%= a.auto_publish_positive ? '0' : '1' %>" />
+                    <button type="submit" class="btn tiny <%= a.auto_publish_positive ? 'secondary' : '' %>">
+                      <%= a.auto_publish_positive ? '⚡ Smart Auto-Publish: On' : '⚡ Enable Smart Auto-Publish' %>
+                    </button>
+                  </form>
+                <% } else { %>
+                  <form method="POST" action="/billing/<%= a.id %>/checkout">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <button type="submit" class="btn btn-pay-black tiny">Pay $35/mo to activate</button>
+                  </form>
+                <% } %>
+              </div>
+
+              <% if (a.isActive) { %>
+                <details class="account-settings">
+                  <summary>⚙️ Reply settings for "<%= a.business_name %>"</summary>
+                  <form method="POST" action="/accounts/<%= a.id %>/settings" class="settings-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <label>Reply tone</label>
+                    <select name="replyTone">
+                      <% tones.forEach(function(t) { %>
+                        <option value="<%= t %>" <%= a.reply_tone === t ? 'selected' : '' %>>
+                          <%= t === 'friendly' ? 'Friendly (default)' : t === 'formal' ? 'Formal' : 'Short' %>
+                        </option>
+                      <% }) %>
+                    </select>
+
+                    <label>Extra risk keywords (blocks auto-publish), comma-separated</label>
+                    <input type="text" name="customKeywords" placeholder="e.g. cold, late, dirty" value="<%= a.custom_risk_keywords || '' %>" />
+
+                    <button type="submit" class="btn secondary tiny">💾 Save Settings</button>
+                  </form>
+                </details>
+
+                <details class="account-settings">
+                  <summary>📝 Saved reply templates for "<%= a.business_name %>"</summary>
+                  <% if (a.templates.length) { %>
+                    <div class="template-list">
+                      <% a.templates.forEach(function(tpl) { %>
+                        <div class="template-item">
+                          <div>
+                            <strong><%= tpl.label %></strong>
+                            <p><%= tpl.body %></p>
+                          </div>
+                          <form method="POST" action="/templates/<%= tpl.id %>/delete">
+                            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                            <button type="submit" class="btn secondary tiny">Delete</button>
+                          </form>
+                        </div>
+                      <% }) %>
+                    </div>
+                  <% } else { %>
+                    <p class="muted small">No saved templates yet.</p>
+                  <% } %>
+                  <form method="POST" action="/templates/accounts/<%= a.id %>" class="template-form">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+                    <input type="text" name="label" placeholder="Label (e.g. Late order apology)" maxlength="80" required />
+                    <textarea name="body" placeholder="The reply text..." rows="3" maxlength="2000" required></textarea>
+                    <button type="submit" class="btn secondary tiny">💾 Save Template</button>
+                  </form>
+                </details>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+        <p class="muted small">
+          "Smart Auto-Publish" publishes a reply instantly without your review, but only for 4-5 star reviews with no negative
+          keywords in the comment. Any review with doubt or a complaint stays a draft awaiting your review as usual.
+        </p>
+        <div class="actions-row">
+          <form method="POST" action="/reviews/sync">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button class="btn" type="submit">🔄 Fetch New Reviews</button>
+          </form>
+          <a class="btn secondary" href="/auth/google">+ Connect another business</a>
+          <a class="btn secondary" href="/reviews/export.csv">⬇️ Export CSV</a>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="reviews">
+      <div class="reviews-header">
+        <h2>Reviews & Drafts</h2>
+        <div class="filters">
+          <a class="filter-chip <%= filterStatus === 'all' ? 'active' : '' %>" href="?status=all">All</a>
+          <a class="filter-chip <%= filterStatus === 'needs_reply' ? 'active' : '' %>" href="?status=needs_reply">Needs Reply</a>
+          <a class="filter-chip <%= filterStatus === 'published' ? 'active' : '' %>" href="?status=published">Published</a>
+          <select onchange="window.location.href = this.value ? '?stars=' + this.value : '?status=<%= filterStatus %>'" class="stars-filter">
+            <option value="">All Stars</option>
+            <% [5,4,3,2,1].forEach(function(s) { %>
+              <option value="<%= s %>" <%= filterStars === s ? 'selected' : '' %>><%= s %> stars</option>
+            <% }) %>
+          </select>
+        </div>
+      </div>
+
+      <% if (!reviews.length) { %>
+        <p>No reviews match this filter.</p>
+      <% } %>
+      <% reviews.forEach(function(r) { %>
+        <div class="review-card" id="review-<%= r.id %>">
+          <div class="review-header">
+            <span class="stars">
+              <% for (let i = 0; i < 5; i++) { %><%= i < r.star_rating ? '★' : '☆' %><% } %>
+            </span>
+            <strong><%= r.reviewer_name || 'Google user' %></strong>
+            <span class="muted"><%= r.business_name %></span>
+            <% if (r.draft_status === 'published' && r.auto_published) { %>
+              <span class="badge published">⚡ Auto-published</span>
+            <% } else if (r.draft_status === 'published') { %>
+              <span class="badge published">Published ✅</span>
+            <% } else if (r.has_owner_reply) { %>
+              <span class="badge">Already has a reply on Google</span>
+            <% } %>
+          </div>
+
+          <% if (r.comment) { %>
+            <p class="review-comment"><%= r.comment %></p>
+          <% } else { %>
+            <p class="review-comment muted">(Star rating only, no comment)</p>
+          <% } %>
+
+          <% if (!r.has_owner_reply || r.draft_status) { %>
+            <form method="POST" action="/reviews/<%= r.id %>/draft" class="draft-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+              <label>Draft reply (review and edit before publishing):</label>
+              <textarea name="draftText" rows="4"><%= r.draft_text || '' %></textarea>
+              <div class="actions-row">
+                <button type="submit" class="btn secondary">💾 Save Edit</button>
+                <button type="submit" formaction="/reviews/<%= r.id %>/regenerate" class="btn secondary">✨ Regenerate</button>
+                <% if (r.draft_status !== 'published') { %>
+                  <button type="submit" formaction="/reviews/<%= r.id %>/publish" class="btn publish" onclick="return confirm('This reply will be published directly to Google and become publicly visible. Are you sure?');">🚀 Publish to Google</button>
+                <% } %>
+              </div>
+              <% if (r.generated_by) { %>
+                <span class="muted small">Generated by: <%= r.generated_by === 'claude' ? 'AI' : r.generated_by === 'manual' ? 'Manual edit' : 'Template' %></span>
+              <% } %>
+            </form>
+          <% } %>
+        </div>
+      <% }) %>
+    </section>
+  </div>
+</body>
+</html>

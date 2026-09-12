@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Privacy Policy - Sanad Review</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="legal">
+    <h1>Privacy Policy</h1>
+    <p>Last updated: 2026</p>
+
+    <p>
+      Sanad Review ("we", "our", "the Service") helps business owners review and manually publish
+      replies to their Google Business Profile reviews. This policy explains what data we
+      collect, why, and how it is used.
+    </p>
+
+    <h2>Information we collect</h2>
+    <ul>
+      <li><strong>Account information:</strong> business name, email address, and password (stored as a salted hash, never in plain text).</li>
+      <li><strong>Google Business Profile data:</strong> when you connect your Google account via OAuth, we access your business account/location information and customer reviews (reviewer name, star rating, review text, existing owner replies) solely to display them in your dashboard and generate suggested replies.</li>
+      <li><strong>Billing information:</strong> subscription and payment details are processed and stored by Stripe, our payment processor. We do not store full card numbers.</li>
+    </ul>
+
+    <h2>How we use your data</h2>
+    <ul>
+      <li>To display your business's reviews inside your Sanad Review dashboard.</li>
+      <li>To generate a draft reply for each new review (using a template engine or, optionally, the Anthropic Claude API).</li>
+      <li>
+        To publish a reply to Google Business Profile <strong>only when you explicitly click
+        "Publish"</strong>, or, if you have opted in, to automatically publish replies to
+        reviews we classify as low-risk (4-5 stars with no negative-sentiment keywords in the
+        comment). No reply is ever posted without either your direct action or your own
+        explicit opt-in setting.
+      </li>
+      <li>To process your subscription payment via Stripe.</li>
+    </ul>
+
+    <h2>Data sharing</h2>
+    <p>
+      We do not sell your data. We share data only with the service providers necessary to
+      operate Sanad Review: Google (Business Profile APIs, at your direction), Stripe (payments),
+      our hosting provider, and, if you enable it, Anthropic (to generate reply text — only the
+      review text, star rating, and business name are sent, never your account credentials).
+    </p>
+
+    <h2>Data retention</h2>
+    <p>
+      We retain your account and review data for as long as your account is active. You may
+      request deletion of your account and associated data at any time by contacting us.
+    </p>
+
+    <h2>Your Google account access</h2>
+    <p>
+      You can revoke Sanad Review's access to your Google account at any time from your
+      <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account permissions page</a>.
+      Revoking access stops all future review syncing and reply publishing immediately.
+    </p>
+
+    <h2>Contact</h2>
+    <p>Questions about this policy? Contact us at the support email listed on your account.</p>
+  </div>
+</body>
+</html>

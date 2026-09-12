@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="<%= t.htmlLang %>" dir="<%= t.dir %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= t.metaTitle %></title>
+  <meta name="description" content="<%= t.metaDescription %>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="lp-body">
+  <header class="lp-nav">
+    <div class="lp-nav-inner">
+      <span class="lp-logo">Sanad Review</span>
+      <nav class="lp-nav-links">
+        <a href="<%= t.langToggle.href %>" class="lp-lang-toggle"><%= t.langToggle.label %></a>
+        <a href="/login"><%= t.nav.login %></a>
+        <a href="/signup" class="btn"><%= t.nav.start %></a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="lp-hero">
+    <div class="lp-blob lp-blob-1"></div>
+    <div class="lp-blob lp-blob-2"></div>
+    <div class="lp-dotgrid"></div>
+    <svg class="lp-chart" viewBox="0 0 800 300" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.35" />
+          <stop offset="100%" stop-color="#22d3ee" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <path d="M0,260 L100,235 L200,245 L300,185 L400,195 L500,130 L600,105 L700,55 L800,35 L800,300 L0,300 Z" fill="url(#chartFill)" />
+      <polyline points="0,260 100,235 200,245 300,185 400,195 500,130 600,105 700,55 800,35" fill="none" stroke="#22d3ee" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.55" />
+    </svg>
+
+    <div class="lp-hero-inner">
+      <div class="lp-hero-text">
+        <span class="lp-eyebrow">✨ <%= t.hero.eyebrow %></span>
+        <h1><%= t.hero.title %></h1>
+        <p class="lp-hero-sub"><%= t.hero.subtitle %></p>
+        <a href="/signup" class="btn lp-cta"><%= t.hero.cta %></a>
+        <p class="lp-hero-note"><%= t.hero.note %></p>
+      </div>
+
+      <div class="lp-hero-visual">
+        <div class="lp-review-card">
+          <div class="lp-review-top">
+            <span class="lp-review-stars">★★★★★</span>
+            <span class="lp-review-name"><%= t.mockup.reviewerName %></span>
+          </div>
+          <p class="lp-review-text">“<%= t.mockup.reviewText %>”</p>
+          <div class="lp-reply-box">
+            <span class="lp-reply-label">✨ <%= t.mockup.replyLabel %></span>
+            <p><%= t.mockup.replyText %></p>
+          </div>
+        </div>
+        <div class="lp-chip lp-chip-1">📈 <%= t.stats.growth %></div>
+        <div class="lp-chip lp-chip-2">⭐ <%= t.stats.rating %></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-features">
+    <div class="lp-section-head">
+      <h2><%= t.features.title %></h2>
+      <p><%= t.features.subtitle %></p>
+    </div>
+    <div class="lp-feature-grid">
+      <% t.features.items.forEach(function(f) { %>
+        <div class="lp-feature-card">
+          <div class="lp-feature-icon"><%= f.icon %></div>
+          <h3><%= f.title %></h3>
+          <p><%= f.desc %></p>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <section class="lp-pricing">
+    <div class="lp-section-head">
+      <h2><%= t.pricing.title %></h2>
+      <p><%= t.pricing.subtitle %></p>
+    </div>
+    <div class="lp-price-card">
+      <div class="lp-price"><%= t.pricing.price %> <span><%= t.pricing.period %></span></div>
+      <ul>
+        <% t.pricing.items.forEach(function(item) { %><li><%= item %></li><% }) %>
+      </ul>
+      <a href="/signup" class="btn lp-cta full"><%= t.pricing.cta %></a>
+    </div>
+  </section>
+
+  <footer class="lp-footer">
+    <p class="lp-footer-tagline">Sanad Review — <%= t.footer.tagline %></p>
+    <p class="muted small">
+      <a href="/privacy"><%= t.footer.privacy %></a> · <a href="/terms"><%= t.footer.terms %></a>
+    </p>
+  </footer>
+</body>
+</html>

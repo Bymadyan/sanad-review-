@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Account Settings - Sanad Review</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Sanad Review</h1>
+    <nav class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/billing">Subscription</a>
+      <form method="POST" action="/logout" style="display:inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <button class="link-btn" type="submit">Log out</button>
+      </form>
+    </nav>
+  </header>
+
+  <div class="container narrow">
+    <% if (error) { %><p class="error"><%= error %></p><% } %>
+    <% if (success) { %><p class="success-msg"><%= success %></p><% } %>
+
+    <div class="card-block">
+      <h2>Business Profile</h2>
+      <form method="POST" action="/settings/profile">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <div class="field">
+          <label>Business name</label>
+          <input type="text" name="businessName" value="<%= user.business_name %>" required />
+        </div>
+        <button class="btn" type="submit">Save</button>
+      </form>
+    </div>
+
+    <div class="card-block">
+      <h2>Change Password</h2>
+      <form method="POST" action="/settings/password">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+        <div class="field">
+          <label>Current password</label>
+          <input type="password" name="currentPassword" required />
+        </div>
+        <div class="field">
+          <label>New password</label>
+          <input type="password" name="newPassword" minlength="8" required />
+        </div>
+        <button class="btn" type="submit">Update Password</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
