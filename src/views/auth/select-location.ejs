@@ -18,6 +18,9 @@
           <input type="hidden" name="locationName" value="<%= loc.name %>" />
           <input type="hidden" name="businessName" value="<%= loc.title %>" />
           <input type="hidden" name="reviewLink" value="<%= (loc.metadata && loc.metadata.newReviewUri) || '' %>" />
+          <input type="hidden" name="latitude" value="<%= (loc.latlng && loc.latlng.latitude) || '' %>" />
+          <input type="hidden" name="longitude" value="<%= (loc.latlng && loc.latlng.longitude) || '' %>" />
+          <input type="hidden" name="primaryCategory" value="<%= (loc.categories && loc.categories.primaryCategory && loc.categories.primaryCategory.displayName) || '' %>" />
           <div>
             <strong><%= loc.title %></strong>
             <% if (loc.storefrontAddress) { %>

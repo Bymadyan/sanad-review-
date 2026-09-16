@@ -58,12 +58,12 @@ router.post("/select-location", (req, res, next) => {
     const tokens = req.session.pendingTokens;
     if (!tokens) return res.redirect("/auth/google");
 
-    const { locationName, businessName, reviewLink } = req.body;
+    const { locationName, businessName, reviewLink, latitude, longitude, primaryCategory } = req.body;
     if (!locationName) return res.status(400).send("Please select a business");
 
     db.prepare(
-      `INSERT INTO accounts (user_id, business_name, location_name, access_token, refresh_token, token_expiry, google_review_link)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO accounts (user_id, business_name, location_name, access_token, refresh_token, token_expiry, google_review_link, latitude, longitude, primary_category)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       req.user.id,
       businessName || locationName,
@@ -71,7 +71,10 @@ router.post("/select-location", (req, res, next) => {
       tokens.access_token,
       tokens.refresh_token,
       tokens.expiry_date,
-      reviewLink || null
+      reviewLink || null,
+      latitude ? Number(latitude) : null,
+      longitude ? Number(longitude) : null,
+      primaryCategory || null
     );
 
     delete req.session.pendingTokens;

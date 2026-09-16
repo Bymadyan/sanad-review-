@@ -95,4 +95,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_reply_templates_account ON reply_templates(account_id);
 `);
 
+// ترقية بسيطة لقواعد بيانات أُنشئت قبل إضافة اللوحة التنفيذية: نضيف أعمدة الموقع الجغرافي/الفئة
+// لو ما كانت موجودة أصلاً، بدون ما نلمس أي بيانات حالية.
+const accountColumns = db.prepare(`PRAGMA table_info(accounts)`).all().map((c) => c.name);
+if (!accountColumns.includes("latitude")) db.exec(`ALTER TABLE accounts ADD COLUMN latitude REAL`);
+if (!accountColumns.includes("longitude")) db.exec(`ALTER TABLE accounts ADD COLUMN longitude REAL`);
+if (!accountColumns.includes("primary_category")) db.exec(`ALTER TABLE accounts ADD COLUMN primary_category TEXT`);
+
 module.exports = db;

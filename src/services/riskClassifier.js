@@ -63,4 +63,27 @@ function isLowRisk({ starRating, comment, customKeywords }) {
   return true;
 }
 
-module.exports = { isLowRisk, containsRiskKeyword, parseCustomKeywords, RISK_KEYWORDS };
+// يعد تكرار كل كلمة خطر داخل مجموعة تقييمات، ويرجع أعلى limit كلمة الأكثر تكراراً — يُستخدم
+// باللوحة التنفيذية لعرض "أكثر المشاكل تكراراً" (نفس منطق insightsGenerator لكن بحد أعلى مختلف
+// وشكل بيانات منظم بدل نص جاهز).
+function countRiskMentions(reviews, customKeywords, limit = 10) {
+  const allKeywords = RISK_KEYWORDS.concat(parseCustomKeywords(customKeywords));
+  const counts = {};
+  for (const r of reviews) {
+    if (!r.comment) continue;
+    const lower = r.comment.toLowerCase();
+    for (const kw of allKeywords) {
+      if (lower.includes(kw.toLowerCase())) {
+        counts[kw] = (counts[kw] || 0) + 1;
+      }
+    }
+  }
+
+  return Object.entries(counts)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([keyword, count]) => ({ keyword, count }));
+}
+
+module.exports = { isLowRisk, containsRiskKeyword, parseCustomKeywords, countRiskMentions, RISK_KEYWORDS };

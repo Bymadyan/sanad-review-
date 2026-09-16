@@ -75,9 +75,10 @@ async function listGoogleAccounts(client) {
   return data.accounts || [];
 }
 
-// يجيب المواقع/النشاطات التجارية تحت حساب Google معين، بما فيها رابط كتابة تقييم جديد
+// يجيب المواقع/النشاطات التجارية تحت حساب Google معين، بما فيها رابط كتابة تقييم جديد.
+// latlng وcategories مطلوبين لميزة "مقارنة المنافسين القريبين" الاختيارية باللوحة التنفيذية.
 async function listLocations(client, accountName) {
-  const readMask = "name,title,storefrontAddress,phoneNumbers,metadata.newReviewUri";
+  const readMask = "name,title,storefrontAddress,phoneNumbers,metadata.newReviewUri,latlng,categories";
   const data = await apiRequest(
     client,
     `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=${encodeURIComponent(readMask)}&pageSize=100`

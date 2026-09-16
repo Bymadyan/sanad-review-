@@ -29,6 +29,10 @@ const env = {
 
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
 
+  // اختياري: مقارنة المنافسين القريبين باللوحة التنفيذية (Google Places API). بدونه، الميزة
+  // تختفي بأمان بدل ما تسبب خطأ — تحتاج مفتاح API منفصل + تفعيل Billing على Google Cloud.
+  googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || null,
+
   resend: {
     apiKey: process.env.RESEND_API_KEY || null,
     fromEmail: process.env.RESEND_FROM_EMAIL || "Sanad Review <onboarding@resend.dev>",
