@@ -59,6 +59,18 @@ h1, h2, h3 { line-height: 1.25; margin: 0 0 8px; }
 .link-btn { background: none; border: none; color: rgba(255, 255, 255, 0.85); cursor: pointer; font-size: 14px; font-family: inherit; }
 .link-btn:hover { text-decoration: underline; }
 
+.urgent-badge-link {
+  background: #dc2626;
+  color: #fff !important;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  text-decoration: none !important;
+  animation: urgent-pulse 2s ease-in-out infinite;
+}
+@keyframes urgent-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
 /* ===== Buttons ===== */
 .btn {
   display: inline-block;

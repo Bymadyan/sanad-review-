@@ -1,5 +1,21 @@
 const db = require("../db");
 
+// عدّاد تنبيه داخل التطبيق: كم تقييم نجمة/نجمتين لسا ينتظر رد (بدون أي إشعار خارجي) — يختفي
+// تلقائياً بمجرد ما صاحب النشاط ينشر الرد، بدون حاجة لتتبّع "مقروء/غير مقروء" منفصل.
+function countUrgentUnrepliedReviews(userId) {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM reviews r
+       JOIN accounts a ON a.id = r.account_id
+       JOIN subscriptions s ON s.account_id = a.id AND s.status IN ('active','trialing')
+       LEFT JOIN drafts d ON d.review_id = r.id
+       WHERE a.user_id = ? AND r.star_rating <= 2 AND (d.status IS NULL OR d.status != 'published')`
+    )
+    .get(userId);
+  return row.count;
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.redirect("/login");
   const user = db.prepare(`SELECT * FROM users WHERE id = ?`).get(req.session.userId);
@@ -9,6 +25,7 @@ function requireAuth(req, res, next) {
   }
   req.user = user;
   res.locals.user = user;
+  res.locals.urgentReviewCount = countUrgentUnrepliedReviews(user.id);
   next();
 }
 

@@ -9,6 +9,9 @@
   <header class="topbar">
     <h1>Sanad Review</h1>
     <nav class="nav-links">
+      <% if (typeof urgentReviewCount !== 'undefined' && urgentReviewCount > 0) { %>
+        <a href="/dashboard?status=needs_reply" class="urgent-badge-link">🚨 <%= urgentReviewCount %> urgent</a>
+      <% } %>
       <a href="/dashboard">Dashboard</a>
       <a href="/settings">Settings</a>
       <a href="/billing">Subscription</a>
