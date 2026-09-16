@@ -61,9 +61,34 @@ function getTopPraises(userId, { accountId, sinceDays = 90, limit = 10 } = {}) {
   return countPraiseMentions(rows, limit);
 }
 
+// تقدير "الإيرادات المعرّضة للخطر" بسبب كل مشكلة متكررة = عدد التقييمات اللي ذكرتها × متوسط قيمة
+// الزبون اللي حدده صاحب النشاط بنفسه. تقدير تقريبي بسيط، مو رقم مقاس فعلياً — نوضح هذا بالواجهة.
+// يحتاج نشاط تجاري محدد (مو تجميع عبر أكثر من فرع) عشان نستخدم رقم قيمة الزبون الصحيح.
+function getRevenueAtRisk(userId, { accountId, sinceDays = 90 } = {}) {
+  if (!accountId) return { available: false, reason: "select_a_business" };
+
+  const account = db.prepare(`SELECT avg_customer_value FROM accounts WHERE id = ? AND user_id = ?`).get(accountId, userId);
+  if (!account || !account.avg_customer_value) return { available: false, reason: "not_configured" };
+
+  const issues = getTopIssues(userId, { accountId, sinceDays, limit: 10 });
+  const perIssue = issues.map((issue) => ({
+    keyword: issue.keyword,
+    count: issue.count,
+    estimatedRisk: Math.round(issue.count * account.avg_customer_value),
+  }));
+
+  return {
+    available: true,
+    avgCustomerValue: account.avg_customer_value,
+    perIssue,
+    totalEstimatedRisk: perIssue.reduce((sum, i) => sum + i.estimatedRisk, 0),
+  };
+}
+
 // إنذار مبكر: مؤشر قائم على قواعد (rule-based) مو تنبؤ ذكاء اصطناعي فعلي — يقارن آخر 14 يوم
-// بالـ 14 يوم اللي قبلها: هل متوسط التقييم تراجع بشكل ملحوظ، أو هل فيه مشكلة معينة صارت تتكرر أكثر
-// من المعتاد. الهدف يعطي صاحب النشاط تحذير مبكر قبل ما التقييم العام ينخفض فعلياً.
+// بالـ 14 يوم اللي قبلها: هل متوسط التقييم تراجع بشكل ملحوظ، أو هل فيه مشاكل معينة صارت تتكرر أكثر
+// من المعتاد (نعرضهم كلهم، مو مشكلة وحدة بس). الهدف يعطي صاحب النشاط تحذير مبكر قبل ما التقييم العام
+// ينخفض فعلياً.
 function getEarlyWarning(userId, { accountId } = {}) {
   const recent = getReviewsInWindow(userId, { accountId, sinceDays: 14 });
   const prior = getReviewsInWindow(userId, { accountId, sinceDays: 28, untilDaysAgo: 14 });
@@ -77,19 +102,19 @@ function getEarlyWarning(userId, { accountId } = {}) {
   const priorAvg = avg(prior);
   const ratingDrop = priorAvg - recentAvg;
 
-  const recentIssues = countRiskMentions(recent.filter((r) => r.comment), "", 5);
+  const recentIssues = countRiskMentions(recent.filter((r) => r.comment), "", 10);
   const priorCounts = new Map(countRiskMentions(prior.filter((r) => r.comment), "", 10).map((i) => [i.keyword, i.count]));
 
-  let risingIssue = null;
+  const risingIssues = [];
   for (const issue of recentIssues) {
     const priorCount = priorCounts.get(issue.keyword) || 0;
     if (issue.count >= 2 && issue.count > priorCount * 1.5) {
-      risingIssue = issue.keyword;
-      break;
+      const percentIncrease = priorCount > 0 ? Math.round(((issue.count - priorCount) / priorCount) * 100) : null;
+      risingIssues.push({ keyword: issue.keyword, recentCount: issue.count, priorCount, percentIncrease });
     }
   }
 
-  const triggered = ratingDrop >= 0.4 || Boolean(risingIssue);
+  const triggered = ratingDrop >= 0.4 || risingIssues.length > 0;
   if (!triggered) return { triggered: false };
 
   return {
@@ -97,8 +122,51 @@ function getEarlyWarning(userId, { accountId } = {}) {
     ratingDrop: Math.round(ratingDrop * 10) / 10,
     recentAvg: Math.round(recentAvg * 10) / 10,
     priorAvg: Math.round(priorAvg * 10) / 10,
-    risingIssue,
+    risingIssues,
   };
 }
 
-module.exports = { getSatisfactionScore, getTopIssues, getTopPraises, getEarlyWarning };
+// مقارنة الفروع: لكل نشاط تجاري (فرع) نشط، متوسط تقييمه بالفترة الحالية مقابل الفترة السابقة —
+// يحدد أفضل/أسوأ فرع، وأكثر فرع تحسّن/تراجع. مفيدة فقط لو عند العميل أكثر من فرع.
+function getBranchComparison(userId, { windowDays = 90 } = {}) {
+  const accounts = db
+    .prepare(
+      `SELECT a.id, a.business_name FROM accounts a
+       JOIN subscriptions s ON s.account_id = a.id
+       WHERE a.user_id = ? AND s.status IN ('active','trialing')
+       ORDER BY a.business_name`
+    )
+    .all(userId);
+
+  const branches = accounts.map((a) => {
+    const current = getReviewsInWindow(userId, { accountId: a.id, sinceDays: windowDays });
+    const previous = getReviewsInWindow(userId, { accountId: a.id, sinceDays: windowDays * 2, untilDaysAgo: windowDays });
+
+    const avg = (rows) => (rows.length ? Math.round((rows.reduce((s, r) => s + r.star_rating, 0) / rows.length) * 10) / 10 : null);
+
+    const avgRating = avg(current);
+    const previousAvgRating = avg(previous);
+
+    return {
+      id: a.id,
+      name: a.business_name,
+      avgRating,
+      previousAvgRating,
+      delta: avgRating != null && previousAvgRating != null ? Math.round((avgRating - previousAvgRating) * 10) / 10 : null,
+      reviewCount: current.length,
+    };
+  });
+
+  const withRating = branches.filter((b) => b.avgRating != null);
+  const withDelta = branches.filter((b) => b.delta != null);
+
+  return {
+    branches,
+    best: withRating.length ? withRating.reduce((a, b) => (b.avgRating > a.avgRating ? b : a)) : null,
+    worst: withRating.length ? withRating.reduce((a, b) => (b.avgRating < a.avgRating ? b : a)) : null,
+    mostImproved: withDelta.length ? withDelta.reduce((a, b) => (b.delta > a.delta ? b : a)) : null,
+    mostDeclined: withDelta.length ? withDelta.reduce((a, b) => (b.delta < a.delta ? b : a)) : null,
+  };
+}
+
+module.exports = { getSatisfactionScore, getTopIssues, getTopPraises, getEarlyWarning, getBranchComparison, getRevenueAtRisk };

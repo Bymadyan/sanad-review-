@@ -15,7 +15,7 @@ process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
 process.env.GOOGLE_REDIRECT_URI = "http://localhost:3000/auth/google/callback";
 
 const db = require("../src/db");
-const { getSatisfactionScore, getTopIssues, getTopPraises, getEarlyWarning } = require("../src/services/executiveAdvisor");
+const { getSatisfactionScore, getTopIssues, getTopPraises, getEarlyWarning, getBranchComparison } = require("../src/services/executiveAdvisor");
 
 let userId, accountId;
 
@@ -106,7 +106,34 @@ test("getEarlyWarning triggers when recent rating drops sharply with a rising co
 
   const warning = getEarlyWarning(userId, { accountId: warnAccountId });
   assert.strictEqual(warning.triggered, true);
-  assert.strictEqual(warning.risingIssue, "slow");
+  assert.ok(warning.risingIssues.some((i) => i.keyword === "slow"));
+});
+
+test("getBranchComparison identifies the best, worst, most-improved and most-declined branches", () => {
+  const branchA = db.prepare(`INSERT INTO accounts (user_id, business_name) VALUES (?, 'Branch A')`).run(userId).lastInsertRowid;
+  const branchB = db.prepare(`INSERT INTO accounts (user_id, business_name) VALUES (?, 'Branch B')`).run(userId).lastInsertRowid;
+  db.prepare(`INSERT INTO subscriptions (user_id, account_id, status) VALUES (?, ?, 'active')`).run(userId, branchA);
+  db.prepare(`INSERT INTO subscriptions (user_id, account_id, status) VALUES (?, ?, 'active')`).run(userId, branchB);
+
+  const insertFor = (id, star, daysAgo) => {
+    db.prepare(
+      `INSERT INTO reviews (account_id, google_review_id, star_rating, review_create_time) VALUES (?, ?, ?, ?)`
+    ).run(id, `gr-branch-${Math.random()}`, star, daysAgoIso(daysAgo));
+  };
+
+  // Branch A: ممتاز بالفترة الحالية، وكان متوسط بالفترة السابقة (تحسّن)
+  for (let i = 0; i < 3; i++) insertFor(branchA, 5, 10 + i);
+  for (let i = 0; i < 3; i++) insertFor(branchA, 3, 100 + i);
+
+  // Branch B: ضعيف بالفترة الحالية، وكان ممتاز بالفترة السابقة (تراجع)
+  for (let i = 0; i < 3; i++) insertFor(branchB, 2, 10 + i);
+  for (let i = 0; i < 3; i++) insertFor(branchB, 5, 100 + i);
+
+  const comparison = getBranchComparison(userId);
+  assert.strictEqual(comparison.best.name, "Branch A");
+  assert.strictEqual(comparison.worst.name, "Branch B");
+  assert.strictEqual(comparison.mostImproved.name, "Branch A");
+  assert.strictEqual(comparison.mostDeclined.name, "Branch B");
 });
 
 test("getEarlyWarning does not trigger with too little data", () => {

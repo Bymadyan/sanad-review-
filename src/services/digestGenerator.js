@@ -4,6 +4,7 @@
 const db = require("../db");
 const { env } = require("../config/env");
 const logger = require("../config/logger");
+const { getRevenueAtRisk } = require("./executiveAdvisor");
 
 const ACTIVE_JOIN = `JOIN subscriptions s ON s.account_id = a.id AND s.status IN ('active','trialing')`;
 
@@ -64,6 +65,22 @@ function getTopInsightLines(userId) {
   return lines;
 }
 
+// إجمالي "الإيرادات المعرّضة للخطر" عبر كل الأنشطة اللي حدد صاحبها متوسط قيمة الزبون لها — تقدير
+// تقريبي فقط، يظهر بالتقرير الأسبوعي لو متوفر لأي نشاط تجاري.
+function getTotalRevenueAtRisk(userId) {
+  const accounts = db.prepare(`SELECT a.id FROM accounts a ${ACTIVE_JOIN} WHERE a.user_id = ? AND a.avg_customer_value IS NOT NULL`).all(userId);
+  let total = 0;
+  let hasAny = false;
+  for (const acc of accounts) {
+    const result = getRevenueAtRisk(userId, { accountId: acc.id });
+    if (result.available) {
+      total += result.totalEstimatedRisk;
+      hasAny = true;
+    }
+  }
+  return hasAny ? total : null;
+}
+
 function trendArrow(thisAvg, lastAvg) {
   if (thisAvg == null || lastAvg == null) return "";
   if (thisAvg > lastAvg) return " ⬆️ up from last week";
@@ -71,7 +88,7 @@ function trendArrow(thisAvg, lastAvg) {
   return " (no change from last week)";
 }
 
-function templateNarrative({ businessName, stats, bestReview, worstReview, insightLines }) {
+function templateNarrative({ businessName, stats, bestReview, worstReview, insightLines, totalRevenueAtRisk }) {
   const parts = [];
 
   if (!stats.this_week_count) {
@@ -88,6 +105,10 @@ function templateNarrative({ businessName, stats, bestReview, worstReview, insig
     parts.push(`Worth your attention: ${insightLines[0].replace(/^•\s*/, "")}`);
   }
 
+  if (totalRevenueAtRisk != null) {
+    parts.push(`Estimated revenue at risk from recurring complaints (based on your own avg. customer value): ~${totalRevenueAtRisk.toLocaleString("en-US")}.`);
+  }
+
   if (bestReview) {
     parts.push(`Your best review this week: "${bestReview.comment}" — ${bestReview.reviewer_name || "a customer"} (${bestReview.star_rating}★)`);
   }
@@ -99,7 +120,10 @@ function templateNarrative({ businessName, stats, bestReview, worstReview, insig
   return parts.join("\n\n");
 }
 
-async function claudeNarrative({ businessName, stats, bestReview, worstReview, insightLines }) {
+// نسخة "مستشار تشغيلي" من التقرير الأسبوعي: بدل ما يكون بس سرد ودود، يبني تقرير مبني على المشكلة
+// الأبرز → السبب المحتمل → الأثر المالي (لو متوفر) → الإجراء المقترح → الأولوية. يستخدم فقط الحقائق
+// المعطاة له، ولا يخترع أرقام أو أسباب غير موجودة بالبيانات.
+async function claudeNarrative({ businessName, stats, bestReview, worstReview, insightLines, totalRevenueAtRisk }) {
   const Anthropic = require("@anthropic-ai/sdk");
   const client = new Anthropic({ apiKey: env.anthropicApiKey });
 
@@ -108,12 +132,19 @@ Reviews this week: ${stats.this_week_count || 0}
 Average rating this week: ${stats.this_week_avg ?? "none"}
 Average rating last week: ${stats.last_week_avg ?? "none"}
 Top recurring complaint theme: ${insightLines[0] || "no clear pattern"}
+Estimated revenue at risk (owner's own assumption applied to complaint counts): ${totalRevenueAtRisk != null ? totalRevenueAtRisk : "not available"}
 Best review: ${bestReview ? `"${bestReview.comment}" (${bestReview.star_rating} stars)` : "none"}
 Worst review needing attention: ${worstReview ? `"${worstReview.comment}" (${worstReview.star_rating} stars)` : "none"}`;
 
-  const system = `You are a business assistant writing a short, warm weekly digest in English for a business owner about their customer reviews on Google.
-Write 3-5 sentences in a personal, friendly tone (not formal or dry), summarizing the situation, highlighting the recurring pattern if any, and mentioning the standout positive and negative review if present.
-Do not invent numbers or details not given to you. Do not write a title or intro like "Weekly report:", start directly with the greeting.`;
+  const system = `You are an AI operations consultant writing a short weekly report in English for a business owner about their customer reviews on Google.
+Start with one warm greeting sentence, then structure the rest as a compact consultant report with these labeled parts (skip any part with no real data instead of inventing content):
+Problem: the main recurring issue, if any.
+Likely Cause: a plausible, modest inference from the review text — not a wild guess.
+Financial Impact: only if a revenue-at-risk figure was given.
+Suggested Action: one concrete, practical next step.
+Priority: High/Medium/Low, with one phrase why.
+Keep the whole report under 150 words total, plain language, no markdown headers — just short labeled lines.
+Do not invent numbers or details not given to you.`;
 
   const msg = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
@@ -137,8 +168,9 @@ async function buildWeeklyDigest(user) {
   const bestReview = getBestReview(user.id);
   const worstReview = getWorstReview(user.id);
   const insightLines = getTopInsightLines(user.id);
+  const totalRevenueAtRisk = getTotalRevenueAtRisk(user.id);
 
-  const context = { businessName: user.business_name, stats, bestReview, worstReview, insightLines };
+  const context = { businessName: user.business_name, stats, bestReview, worstReview, insightLines, totalRevenueAtRisk };
 
   let narrative;
   if (env.anthropicApiKey) {

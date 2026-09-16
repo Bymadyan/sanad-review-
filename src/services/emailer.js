@@ -54,6 +54,24 @@ async function notifyNewReviews({ toEmail, businessName, count }) {
   return sendEmail({ toEmail, subject, html });
 }
 
+// تنبيه فوري لما يوصل تقييم نجمة أو نجمتين — يرسل فوراً وقت المزامنة، مو ينتظر الملخص العادي،
+// عشان صاحب العمل يقدر يتصرف بسرعة (أحياناً حتى يتواصل مع العميل مباشرة قبل ما يتصعّد الموضوع).
+async function sendUrgentReviewAlert({ toEmail, businessName, starRating, comment, reviewerName }) {
+  if (!env.resend.apiKey) return false;
+
+  const subject = `🚨 ${starRating}★ review just posted for ${businessName}`;
+
+  const html = wrapEmail(`
+    <h2>🚨 Urgent — a low review just came in</h2>
+    <p><strong>${escapeHtml(businessName)}</strong> just received a <strong>${starRating}★</strong> review${reviewerName ? ` from ${escapeHtml(reviewerName)}` : ""}.</p>
+    ${comment ? `<blockquote style="border-inline-start:3px solid #dc2626;margin:12px 0;padding:8px 14px;color:#444;">${escapeHtml(comment)}</blockquote>` : ""}
+    <p>A draft reply is ready for your review — the sooner you respond, the better it looks to the customer and anyone reading later.</p>
+    <p><a href="${env.appBaseUrl || ""}/dashboard" style="display:inline-block;background:#dc2626;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;">Review and reply now</a></p>
+  `);
+
+  return sendEmail({ toEmail, subject, html });
+}
+
 async function sendWeeklyDigest({ toEmail, subject, narrative }) {
   const html = wrapEmail(`
     <h2>📊 Your Weekly Digest</h2>
@@ -75,4 +93,4 @@ async function sendPasswordResetEmail({ toEmail, resetUrl }) {
   return sendEmail({ toEmail, subject: "Reset your Sanad Review password", html });
 }
 
-module.exports = { notifyNewReviews, sendWeeklyDigest, sendPasswordResetEmail };
+module.exports = { notifyNewReviews, sendUrgentReviewAlert, sendWeeklyDigest, sendPasswordResetEmail };

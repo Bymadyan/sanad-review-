@@ -178,6 +178,9 @@
                     <label>Extra risk keywords (blocks auto-publish), comma-separated</label>
                     <input type="text" name="customKeywords" placeholder="e.g. cold, late, dirty" value="<%= a.custom_risk_keywords || '' %>" />
 
+                    <label>Average customer value (for the "revenue at risk" estimate on the Executive Dashboard — your own rough estimate, in your currency)</label>
+                    <input type="number" name="avgCustomerValue" step="0.01" min="0" placeholder="e.g. 50" value="<%= a.avg_customer_value || '' %>" />
+
                     <button type="submit" class="btn secondary tiny">💾 Save Settings</button>
                   </form>
                 </details>

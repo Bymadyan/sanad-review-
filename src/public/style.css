@@ -357,3 +357,23 @@ html[dir="rtl"] .login-box form { text-align: right; }
 .exec-competitor-list { list-style: none; padding: 0; margin: 14px 0 0; }
 .exec-competitor-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .exec-competitor-list li:last-child { border-bottom: none; }
+
+.exec-branch-highlights { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.exec-branch-chip { font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: var(--bg); }
+.exec-branch-chip.best { background: var(--success-bg); color: var(--success); }
+.exec-branch-chip.worst { background: #fef2f2; color: #b91c1c; }
+.exec-branch-chip.up { background: var(--success-bg); color: var(--success); }
+.exec-branch-chip.down { background: #fef2f2; color: #b91c1c; }
+
+.exec-branch-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.exec-branch-table th, .exec-branch-table td { text-align: start; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.exec-branch-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.02em; }
+.exec-branch-table tr:last-child td { border-bottom: none; }
+
+.exec-ask { background: linear-gradient(135deg, #f0f4ff, #ffffff); }
+.exec-ask-form { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.exec-ask-form input[type="text"] { flex: 1; min-width: 220px; }
+.exec-ask-answer { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 14px; }
+.exec-ask-answer p { margin: 4px 0; }
+
+.exec-ai .insight-header { margin-bottom: 4px; }

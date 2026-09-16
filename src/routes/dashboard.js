@@ -117,7 +117,7 @@ router.post("/accounts/:id/auto-publish", requireAuth, (req, res) => {
   res.redirect("/dashboard");
 });
 
-// تحديث إعدادات الرد لنشاط تجاري: نبرة الرد + كلمات الخطر المخصصة
+// تحديث إعدادات الرد لنشاط تجاري: نبرة الرد + كلمات الخطر المخصصة + متوسط قيمة الزبون
 router.post("/accounts/:id/settings", requireAuth, (req, res) => {
   const accountId = Number(req.params.id);
   const account = db.prepare(`SELECT id FROM accounts WHERE id = ? AND user_id = ?`).get(accountId, req.user.id);
@@ -126,8 +126,15 @@ router.post("/accounts/:id/settings", requireAuth, (req, res) => {
 
   const tone = VALID_TONES.includes(req.body.replyTone) ? req.body.replyTone : "friendly";
   const customKeywords = (req.body.customKeywords || "").slice(0, 1000);
+  const avgCustomerValueRaw = Number(req.body.avgCustomerValue);
+  const avgCustomerValue = avgCustomerValueRaw > 0 ? avgCustomerValueRaw : null;
 
-  db.prepare(`UPDATE accounts SET reply_tone = ?, custom_risk_keywords = ? WHERE id = ?`).run(tone, customKeywords || null, accountId);
+  db.prepare(`UPDATE accounts SET reply_tone = ?, custom_risk_keywords = ?, avg_customer_value = ? WHERE id = ?`).run(
+    tone,
+    customKeywords || null,
+    avgCustomerValue,
+    accountId
+  );
 
   res.redirect("/dashboard");
 });

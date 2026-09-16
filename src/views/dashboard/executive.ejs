@@ -44,6 +44,29 @@
       </section>
     <% } else { %>
 
+      <section class="card-block exec-ask">
+        <h3>💬 Ask your data</h3>
+        <p class="muted small">e.g. "Why did the rating drop this month?" or "What's the most common complaint?" — answered from your real computed data for the scope selected above.</p>
+        <form method="POST" action="/executive/ask" class="exec-ask-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="accountId" value="<%= selectedAccountId || '' %>" />
+          <input type="text" name="question" placeholder="Ask a question about your reviews..." maxlength="300" required />
+          <button type="submit" class="btn secondary tiny">Ask</button>
+        </form>
+        <% if (aiAnswer) { %>
+          <% if (aiAnswer.available) { %>
+            <div class="exec-ask-answer">
+              <p class="muted small"><strong>Q:</strong> <%= aiAnswer.question %></p>
+              <p><%= aiAnswer.answer %></p>
+            </div>
+          <% } else if (aiAnswer.reason === 'not_configured') { %>
+            <p class="muted small">🔒 Needs <code>ANTHROPIC_API_KEY</code> configured to answer questions.</p>
+          <% } else { %>
+            <p class="muted small">Couldn't generate an answer this time — try rephrasing the question.</p>
+          <% } %>
+        <% } %>
+      </section>
+
       <% if (earlyWarning && earlyWarning.triggered) { %>
         <section class="exec-warning">
           <div class="exec-warning-icon">⚠️</div>
@@ -54,8 +77,11 @@
               <strong><%= earlyWarning.recentAvg %>★</strong> vs
               <strong><%= earlyWarning.priorAvg %>★</strong> in the 14 days before
               (<%= earlyWarning.ratingDrop > 0 ? `-${earlyWarning.ratingDrop}` : earlyWarning.ratingDrop %>).
-              <% if (earlyWarning.risingIssue) { %>
-                Complaints mentioning "<strong><%= earlyWarning.risingIssue %></strong>" are rising faster than usual.
+              <% if (earlyWarning.risingIssues && earlyWarning.risingIssues.length) { %>
+                Rising complaints:
+                <% earlyWarning.risingIssues.forEach(function(ri, i) { %>
+                  "<strong><%= ri.keyword %></strong>" (<%= ri.priorCount %> → <%= ri.recentCount %><%= ri.percentIncrease != null ? `, +${ri.percentIncrease}%` : '' %>)<%= i < earlyWarning.risingIssues.length - 1 ? ', ' : '' %>
+                <% }) %>.
               <% } %>
               This is a rule-based early signal, not a guarantee — worth a closer look before it shows up in your public rating.
             </p>
@@ -83,7 +109,40 @@
           <div class="stat-value"><%= satisfaction ? satisfaction.totalReviews : 0 %></div>
           <div class="stat-label">Reviews analyzed in period</div>
         </div>
+        <% if (revenueAtRisk.available) { %>
+          <div class="stat-tile">
+            <div class="stat-value">💰 <%= revenueAtRisk.totalEstimatedRisk.toLocaleString('en-US') %></div>
+            <div class="stat-label">Estimated revenue at risk (based on your own avg. customer value)</div>
+          </div>
+        <% } %>
       </section>
+
+      <% if (branchComparison && branchComparison.branches.length > 1) { %>
+        <section class="card-block">
+          <h3>🏢 Branch Comparison</h3>
+          <p class="muted small">Average rating per branch, last 90 days vs the previous 90 days.</p>
+          <div class="exec-branch-highlights">
+            <% if (branchComparison.best) { %><span class="exec-branch-chip best">🏆 Best: <%= branchComparison.best.name %> (<%= branchComparison.best.avgRating %>★)</span><% } %>
+            <% if (branchComparison.worst) { %><span class="exec-branch-chip worst">⚠️ Needs attention: <%= branchComparison.worst.name %> (<%= branchComparison.worst.avgRating %>★)</span><% } %>
+            <% if (branchComparison.mostImproved && branchComparison.mostImproved.delta > 0) { %><span class="exec-branch-chip up">📈 Most improved: <%= branchComparison.mostImproved.name %> (+<%= branchComparison.mostImproved.delta %>)</span><% } %>
+            <% if (branchComparison.mostDeclined && branchComparison.mostDeclined.delta < 0) { %><span class="exec-branch-chip down">📉 Most declined: <%= branchComparison.mostDeclined.name %> (<%= branchComparison.mostDeclined.delta %>)</span><% } %>
+          </div>
+          <table class="exec-branch-table">
+            <thead><tr><th>Branch</th><th>Current avg</th><th>Previous avg</th><th>Change</th><th>Reviews</th></tr></thead>
+            <tbody>
+              <% branchComparison.branches.forEach(function(b) { %>
+                <tr>
+                  <td><%= b.name %></td>
+                  <td><%= b.avgRating != null ? `★ ${b.avgRating}` : '—' %></td>
+                  <td><%= b.previousAvgRating != null ? `★ ${b.previousAvgRating}` : '—' %></td>
+                  <td class="<%= b.delta > 0 ? 'exec-delta up' : b.delta < 0 ? 'exec-delta down' : '' %>"><%= b.delta != null ? (b.delta > 0 ? `+${b.delta}` : b.delta) : '—' %></td>
+                  <td><%= b.reviewCount %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </section>
+      <% } %>
 
       <div class="exec-grid">
         <section class="card-block exec-list">
@@ -92,11 +151,7 @@
           <% if (!topIssues.length) { %>
             <p class="muted">No recurring problems found — either not enough negative reviews yet, or complaints are too varied to rank.</p>
           <% } else { %>
-            <ol class="exec-rank-list">
-              <% topIssues.forEach(function(item) { %>
-                <li><span class="exec-rank-label"><%= item.keyword %></span><span class="exec-rank-count"><%= item.count %></span></li>
-              <% }) %>
-            </ol>
+            <%- issuesChartSvg %>
           <% } %>
         </section>
 
@@ -106,14 +161,52 @@
           <% if (!topPraises.length) { %>
             <p class="muted">No recurring praise theme found yet — needs more positive reviews with comments.</p>
           <% } else { %>
-            <ol class="exec-rank-list">
-              <% topPraises.forEach(function(item) { %>
-                <li><span class="exec-rank-label"><%= item.keyword %></span><span class="exec-rank-count"><%= item.count %></span></li>
-              <% }) %>
-            </ol>
+            <%- praisesChartSvg %>
           <% } %>
         </section>
       </div>
+
+      <% if (revenueAtRisk.available && revenueAtRisk.perIssue.length) { %>
+        <section class="card-block">
+          <h3>💰 Cost of Each Problem (estimate)</h3>
+          <p class="muted small">
+            Rough estimate = mentions of each problem × the average customer value you set (<%= revenueAtRisk.avgCustomerValue %>).
+            This is your own assumption applied to real complaint counts — not a measured financial figure.
+          </p>
+          <ol class="exec-rank-list">
+            <% revenueAtRisk.perIssue.forEach(function(item) { %>
+              <li><span class="exec-rank-label"><%= item.keyword %> (<%= item.count %>)</span><span class="exec-rank-count">~<%= item.estimatedRisk.toLocaleString('en-US') %></span></li>
+            <% }) %>
+          </ol>
+        </section>
+      <% } else if (!revenueAtRisk.available && revenueAtRisk.reason === 'not_configured' && selectedAccountId) { %>
+        <section class="card-block">
+          <h3>💰 Cost of Each Problem</h3>
+          <p class="muted">🔒 Set "Average customer value" in this business's Reply Settings (on the Dashboard) to see an estimated revenue-at-risk breakdown.</p>
+        </section>
+      <% } %>
+
+      <% if (selectedAccount) { %>
+        <section class="card-block exec-ai">
+          <div class="insight-header">
+            <h3>🤖 AI Deep Analysis</h3>
+            <% if (selectedAccount.exec_ai_generated_at) { %>
+              <span class="muted small">Last updated: <%= new Date(selectedAccount.exec_ai_generated_at * 1000).toLocaleString('en-US') %></span>
+            <% } %>
+          </div>
+          <p class="muted small">Specific operational recommendations, staff mentioned by name, and observations from any photos attached to reviews.</p>
+          <% if (selectedAccount.exec_ai_summary) { %>
+            <pre class="insight-summary"><%= selectedAccount.exec_ai_summary %></pre>
+          <% } else { %>
+            <p class="muted">No deep analysis yet for this business.</p>
+          <% } %>
+          <form method="POST" action="/accounts/<%= selectedAccount.id %>/deep-analysis">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+            <button type="submit" class="btn secondary tiny">🔄 <%= selectedAccount.exec_ai_summary ? 'Refresh Deep Analysis' : 'Run Deep Analysis' %></button>
+          </form>
+          <p class="muted small" style="margin-top:8px;">🔒 Needs <code>ANTHROPIC_API_KEY</code> configured — without it, this returns "not available" instead of an error.</p>
+        </section>
+      <% } %>
 
       <section class="card-block">
         <h3>📍 Nearby Competitor Comparison</h3>
@@ -136,6 +229,42 @@
           <p class="muted">This business is missing location data from Google — reconnect it to enable this comparison.</p>
         <% } else { %>
           <p class="muted">🔒 Not enabled yet — this needs a separate Google Places API key (with billing enabled on the Google Cloud project). Ask your developer to set <code>GOOGLE_PLACES_API_KEY</code> to turn this on.</p>
+        <% } %>
+      </section>
+
+      <section class="card-block">
+        <h3>🥊 Analyze a Named Competitor</h3>
+        <p class="muted small">Look up any competitor by name — Google returns up to 5 of their most relevant public reviews (a sample, not their full history).</p>
+        <form method="POST" action="/executive/competitor-analysis" class="exec-ask-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
+          <input type="hidden" name="accountId" value="<%= selectedAccountId || '' %>" />
+          <input type="text" name="competitorName" placeholder="Competitor business name..." maxlength="200" required />
+          <button type="submit" class="btn secondary tiny">Analyze</button>
+        </form>
+        <% if (competitorAnalysis) { %>
+          <% if (competitorAnalysis.available) { %>
+            <div class="exec-ask-answer">
+              <p><strong><%= competitorAnalysis.name %></strong> — <%= competitorAnalysis.rating != null ? `★ ${competitorAnalysis.rating}` : 'No rating' %> <span class="muted small">(<%= competitorAnalysis.reviewCount %> total reviews on Google)</span></p>
+              <% if (competitorAnalysis.aiSummary) { %>
+                <pre class="insight-summary"><%= competitorAnalysis.aiSummary %></pre>
+              <% } else if (competitorAnalysis.reviewSnippets.length) { %>
+                <p class="muted small">Sample reviews (set <code>ANTHROPIC_API_KEY</code> for an auto-summarized strengths/weaknesses view):</p>
+                <ul class="exec-competitor-list">
+                  <% competitorAnalysis.reviewSnippets.forEach(function(r) { %>
+                    <li><span>★<%= r.rating %></span><span><%= r.text.length > 140 ? r.text.slice(0, 140) + '…' : r.text %></span></li>
+                  <% }) %>
+                </ul>
+              <% } else { %>
+                <p class="muted small">No public review text available for this business yet.</p>
+              <% } %>
+            </div>
+          <% } else if (competitorAnalysis.reason === 'not_configured') { %>
+            <p class="muted small">🔒 Needs <code>GOOGLE_PLACES_API_KEY</code> configured to look up competitors.</p>
+          <% } else if (competitorAnalysis.reason === 'not_found') { %>
+            <p class="muted small">Couldn't find a business by that name on Google — try being more specific (add the city or area).</p>
+          <% } else { %>
+            <p class="muted small">Couldn't complete this lookup right now — try again.</p>
+          <% } %>
         <% } %>
       </section>
 

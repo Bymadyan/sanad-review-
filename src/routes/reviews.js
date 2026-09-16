@@ -5,7 +5,7 @@ const google = require("../services/googleClient");
 const { generateDraftReply } = require("../services/replyGenerator");
 const { isLowRisk } = require("../services/riskClassifier");
 const { requireAuth, ACTIVE_STATUSES } = require("../middleware/auth");
-const { notifyNewReviews } = require("../services/emailer");
+const { notifyNewReviews, sendUrgentReviewAlert } = require("../services/emailer");
 const logger = require("../config/logger");
 
 router.use(requireAuth);
@@ -36,15 +36,37 @@ router.post("/sync", async (req, res, next) => {
           const starRating = starRatingMap[gr.starRating] || 0;
           const comment = gr.comment || "";
           const hasOwnerReply = gr.reviewReply ? 1 : 0;
+          const reviewerName = (gr.reviewer && gr.reviewer.displayName) || "";
+          const photoUrls = (gr.reviewMediaItems || []).map((m) => m.thumbnailUrl).filter(Boolean);
 
           const info = db
             .prepare(
-              `INSERT INTO reviews (account_id, google_review_id, reviewer_name, star_rating, comment, review_create_time, has_owner_reply)
-               VALUES (?, ?, ?, ?, ?, ?, ?)`
+              `INSERT INTO reviews (account_id, google_review_id, reviewer_name, star_rating, comment, review_create_time, has_owner_reply, photo_urls)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
             )
-            .run(account.id, gr.reviewId, (gr.reviewer && gr.reviewer.displayName) || "", starRating, comment, gr.createTime || null, hasOwnerReply);
+            .run(
+              account.id,
+              gr.reviewId,
+              reviewerName,
+              starRating,
+              comment,
+              gr.createTime || null,
+              hasOwnerReply,
+              photoUrls.length ? JSON.stringify(photoUrls) : null
+            );
 
           newCount++;
+
+          // تنبيه فوري (بدون انتظار) لأي تقييم نجمة أو نجمتين — أسرع من الملخص المجمّع بآخر المزامنة
+          if (starRating > 0 && starRating <= 2) {
+            sendUrgentReviewAlert({
+              toEmail: req.user.email,
+              businessName: account.business_name,
+              starRating,
+              comment,
+              reviewerName,
+            }).catch((err) => logger.warn({ err: err.message }, "Failed to send urgent low-rating alert email"));
+          }
 
           // ما نسوي مسودة رد لتقييم عنده رد من صاحب النشاط أصلاً
           if (!hasOwnerReply) {

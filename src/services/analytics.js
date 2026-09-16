@@ -78,4 +78,35 @@ function renderTrendSvg(trend, { width = 320, height = 90 } = {}) {
   return `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Weekly average rating trend">${polylines}${dots}</svg>`;
 }
 
-module.exports = { getWeeklyRatingTrend, renderTrendSvg, WEEKS };
+function escapeXml(str) {
+  return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+}
+
+// رسم بياني بالأعمدة الأفقية لقائمة { keyword, count } — يُستخدم لعرض أكثر المشاكل أو العناصر
+// المحبوبة تكراراً باللوحة التنفيذية، بنفس أسلوب الرسم البسيط بدون أي مكتبة خارجية.
+function renderBarChartSvg(items, { width = 480, barHeight = 26, gap = 10, barColor = "#0a0a0a" } = {}) {
+  if (!items.length) return null;
+
+  const maxCount = Math.max(...items.map((i) => i.count));
+  const labelWidth = 130;
+  const chartWidth = width - labelWidth - 40;
+  const rowHeight = barHeight + gap;
+  const height = items.length * rowHeight;
+
+  const rows = items
+    .map((item, i) => {
+      const y = i * rowHeight;
+      const barWidth = Math.max(4, (item.count / maxCount) * chartWidth);
+      const label = escapeXml(item.keyword.length > 16 ? item.keyword.slice(0, 15) + "…" : item.keyword);
+      return `
+        <text x="0" y="${y + barHeight / 2 + 4}" font-size="12" fill="#1a1a1a">${label}</text>
+        <rect x="${labelWidth}" y="${y}" width="${barWidth.toFixed(1)}" height="${barHeight}" rx="4" fill="${barColor}" />
+        <text x="${labelWidth + barWidth + 8}" y="${y + barHeight / 2 + 4}" font-size="12" fill="#6b7280">${item.count}</text>
+      `;
+    })
+    .join("");
+
+  return `<svg viewBox="0 0 ${width} ${height}" width="100%" height="${height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ranked bar chart">${rows}</svg>`;
+}
+
+module.exports = { getWeeklyRatingTrend, renderTrendSvg, renderBarChartSvg, WEEKS };

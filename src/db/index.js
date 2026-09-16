@@ -101,5 +101,15 @@ const accountColumns = db.prepare(`PRAGMA table_info(accounts)`).all().map((c) =
 if (!accountColumns.includes("latitude")) db.exec(`ALTER TABLE accounts ADD COLUMN latitude REAL`);
 if (!accountColumns.includes("longitude")) db.exec(`ALTER TABLE accounts ADD COLUMN longitude REAL`);
 if (!accountColumns.includes("primary_category")) db.exec(`ALTER TABLE accounts ADD COLUMN primary_category TEXT`);
+// متوسط قيمة الزبون (بعملة صاحب النشاط، أي رقم يحدده هو) — يُستخدم لتقدير "الإيرادات المعرّضة للخطر"
+// بسبب مشكلة متكررة. تقدير تقريبي مبني على افتراض صاحب النشاط نفسه، مو رقم مقاس فعلياً.
+if (!accountColumns.includes("avg_customer_value")) db.exec(`ALTER TABLE accounts ADD COLUMN avg_customer_value REAL`);
+// نص AI مُخزَّن من آخر تحليل عميق (توصيات تشغيلية محددة + موظفين مذكورين)، بنفس نمط insight_summary
+if (!accountColumns.includes("exec_ai_summary")) db.exec(`ALTER TABLE accounts ADD COLUMN exec_ai_summary TEXT`);
+if (!accountColumns.includes("exec_ai_generated_at")) db.exec(`ALTER TABLE accounts ADD COLUMN exec_ai_generated_at INTEGER`);
+
+const reviewColumns = db.prepare(`PRAGMA table_info(reviews)`).all().map((c) => c.name);
+// روابط صور مرفقة بالتقييم من Google (JSON array نصي) — تُستخدم لتحليل الصور بالذكاء الاصطناعي
+if (!reviewColumns.includes("photo_urls")) db.exec(`ALTER TABLE reviews ADD COLUMN photo_urls TEXT`);
 
 module.exports = db;

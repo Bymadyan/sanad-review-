@@ -63,4 +63,84 @@ async function getNearbyCompetitors(account) {
   }
 }
 
-module.exports = { getNearbyCompetitors };
+// تحليل منافس محدد بالاسم: يبحث عنه على Google، ويجيب تقييمه العام + عيّنة من آخر مراجعاته (Google
+// يرجع بحد أقصى 5 مراجعات "الأكثر صلة" لكل مكان عبر الـ API — مو كل المراجعات، هذا حد مفروض من
+// Google نفسه). لو Claude مفعّل، نلخّص نقاط القوة/الضعف من العيّنة؛ وإلا نرجع نصوص المراجعات
+// الخام للمالك يقرأها بنفسه.
+async function analyzeNamedCompetitor(competitorName, account) {
+  if (!env.googlePlacesApiKey) {
+    return { available: false, reason: "not_configured" };
+  }
+
+  const trimmedName = (competitorName || "").trim();
+  if (!trimmedName) return { available: false, reason: "empty_name" };
+
+  try {
+    const body = {
+      textQuery: trimmedName,
+      maxResultCount: 1,
+    };
+    if (account && account.latitude && account.longitude) {
+      body.locationBias = {
+        circle: { center: { latitude: account.latitude, longitude: account.longitude }, radius: 15000 },
+      };
+    }
+
+    const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": env.googlePlacesApiKey,
+        "X-Goog-FieldMask": "places.displayName,places.rating,places.userRatingCount,places.reviews",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const responseBody = await res.text();
+      logger.warn({ status: res.status, body: responseBody }, "Named competitor search failed");
+      return { available: false, reason: "api_error" };
+    }
+
+    const data = await res.json();
+    const place = (data.places || [])[0];
+    if (!place) return { available: false, reason: "not_found" };
+
+    const reviewSnippets = (place.reviews || [])
+      .map((r) => ({ rating: r.rating, text: (r.text && r.text.text) || "" }))
+      .filter((r) => r.text);
+
+    let aiSummary = null;
+    if (env.anthropicApiKey && reviewSnippets.length) {
+      try {
+        const Anthropic = require("@anthropic-ai/sdk");
+        const client = new Anthropic({ apiKey: env.anthropicApiKey });
+        const reviewsText = reviewSnippets.map((r) => `- (${r.rating}★) ${r.text}`).join("\n");
+        const msg = await client.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 300,
+          system: `You are analyzing a small sample (up to 5) of a competitor business's public Google reviews. From ONLY these reviews, list their apparent strengths and weaknesses as two short bullet lists. Note this is a small sample, not their full review history. Under 120 words.`,
+          messages: [{ role: "user", content: reviewsText }],
+        });
+        const textBlock = msg.content.find((b) => b.type === "text");
+        aiSummary = textBlock && textBlock.text.trim();
+      } catch (err) {
+        logger.warn({ err: err.message }, "Named competitor AI summary failed");
+      }
+    }
+
+    return {
+      available: true,
+      name: place.displayName?.text || trimmedName,
+      rating: typeof place.rating === "number" ? place.rating : null,
+      reviewCount: place.userRatingCount || 0,
+      reviewSnippets,
+      aiSummary,
+    };
+  } catch (err) {
+    logger.warn({ err: err.message }, "Named competitor lookup failed");
+    return { available: false, reason: "network_error" };
+  }
+}
+
+module.exports = { getNearbyCompetitors, analyzeNamedCompetitor };
