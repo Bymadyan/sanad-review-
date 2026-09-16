@@ -15,7 +15,7 @@
       <% entry.locations.forEach(function(loc) { %>
         <form method="POST" action="/auth/select-location" class="location-card">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-          <input type="hidden" name="locationName" value="<%= loc.name %>" />
+          <input type="hidden" name="locationName" value="<%= entry.account.name %>/<%= loc.name %>" />
           <input type="hidden" name="businessName" value="<%= loc.title %>" />
           <input type="hidden" name="reviewLink" value="<%= (loc.metadata && loc.metadata.newReviewUri) || '' %>" />
           <input type="hidden" name="latitude" value="<%= (loc.latlng && loc.latlng.latitude) || '' %>" />
