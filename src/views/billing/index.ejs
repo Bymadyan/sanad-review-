@@ -24,7 +24,7 @@
   <div class="container narrow">
     <div class="accounts">
       <h2>Subscription</h2>
-      <p class="muted">Each connected business has its own $35/month subscription — add as many businesses as you like and pay only for the ones you activate.</p>
+      <p class="muted">Each connected business has its own $129/month subscription — add as many businesses as you like and pay only for the ones you activate.</p>
 
       <% if (!stripeConfigured) { %>
         <p class="error">Payments aren't enabled yet. Please contact us.</p>
@@ -47,7 +47,7 @@
                   <span class="badge"><%= a.sub_status && a.sub_status !== 'incomplete' ? a.sub_status : 'Needs payment' %></span>
                   <form method="POST" action="/billing/<%= a.id %>/checkout">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>" />
-                    <button class="btn btn-pay-black" type="submit">Pay $35/mo</button>
+                    <button class="btn btn-pay-black" type="submit">Pay $129/mo</button>
                   </form>
                 <% } %>
               </div>

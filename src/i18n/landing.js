@@ -12,7 +12,7 @@ const en = {
     title: "Reply to every Google review in seconds — without losing control.",
     subtitle:
       "Sanad Review drafts the perfect reply the moment a new Google review lands, in your brand's voice. Approve every word before it goes public — or let safe, positive reviews publish themselves.",
-    cta: "Get Started — $35/mo",
+    cta: "Get Started — $129/mo",
     note: "No long-term contract. Cancel anytime from your dashboard.",
   },
   mockup: {
@@ -40,7 +40,7 @@ const en = {
   pricing: {
     title: "Simple, transparent pricing",
     subtitle: "One plan per business. Everything included.",
-    price: "$35",
+    price: "$129",
     period: "/ month / business",
     items: [
       "Unlimited reviews",
@@ -67,7 +67,7 @@ const ar = {
     title: "رد على كل تقييم Google خلال ثوانٍ — دون أن تفقد السيطرة",
     subtitle:
       "تُعدّ Sanad Review رداً احترافياً بصوت علامتك التجارية فور وصول أي تقييم جديد على Google. راجع كل كلمة قبل نشرها، أو دع التقييمات الإيجابية الآمنة تُنشر تلقائياً.",
-    cta: "ابدأ الآن — 35$ شهرياً",
+    cta: "ابدأ الآن — 129$ شهرياً",
     note: "بدون التزام طويل الأمد. يمكنك الإلغاء في أي وقت من لوحة التحكم.",
   },
   mockup: {
@@ -95,7 +95,7 @@ const ar = {
   pricing: {
     title: "تسعير بسيط وشفاف",
     subtitle: "خطة واحدة لكل نشاط تجاري. كل شيء متضمّن.",
-    price: "35$",
+    price: "129$",
     period: "/ شهرياً لكل نشاط",
     items: [
       "تقييمات غير محدودة",
