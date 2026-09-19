@@ -1,4 +1,4 @@
-# Sanad Review — أداة الرد التلقائي (مسودات) على تقييمات Google
+# xrepu — أداة الرد التلقائي (مسودات) على تقييمات Google
 
 > **v2 — إعادة بناء كاملة من الصفر.** نفس الفكرة الأساسية اللي أثبتت نفسها بالنسخة الأولى، لكن ببنية
 > كود احترافية (طبقات منفصلة: config / db / middleware / services / routes / views)، حماية أقوى
@@ -211,7 +211,7 @@
 
 1. أنشئ حساب على https://dashboard.stripe.com (يدعم شركات الإمارات).
 2. من Developers > API keys: انسخ **Secret key** (استخدم `sk_test_...` وقت التجربة).
-3. من Product catalog: أنشئ Product باسم "Sanad Review"، وProduct Price:
+3. من Product catalog: أنشئ Product باسم "xrepu"، وProduct Price:
    - Recurring، شهري (Monthly)، 129.00 **USD**.
    - انسخ معرف الـ Price (يبدأ بـ `price_...`).
 4. من Developers > Webhooks: أضف Endpoint جديد يشاور على `https://<دومينك>/billing/webhook`

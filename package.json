@@ -1,7 +1,7 @@
 {
-  "name": "sanad-review",
+  "name": "xrepu",
   "version": "2.0.0",
-  "description": "AI-powered Google review management SaaS — draft-first replies, smart auto-publish, insights, and a weekly digest.",
+  "description": "AI-powered reputation and operations platform for Google Business Profile — draft-first replies, smart auto-publish, an executive dashboard, and a weekly operator report.",
   "private": true,
   "type": "commonjs",
   "main": "src/server.js",

@@ -42,7 +42,7 @@ function wrapEmail(bodyHtml) {
 async function notifyNewReviews({ toEmail, businessName, count }) {
   if (!env.resend.apiKey) return false;
 
-  const subject = count === 1 ? "1 new review needs your reply on Sanad Review" : `${count} new reviews need your reply on Sanad Review`;
+  const subject = count === 1 ? "1 new review needs your reply on xrepu" : `${count} new reviews need your reply on xrepu`;
 
   const html = wrapEmail(`
     <h2>Hi ${escapeHtml(businessName)} 👋</h2>
@@ -85,12 +85,12 @@ async function sendWeeklyDigest({ toEmail, subject, narrative }) {
 async function sendPasswordResetEmail({ toEmail, resetUrl }) {
   const html = wrapEmail(`
     <h2>Reset your password</h2>
-    <p>We received a request to reset your Sanad Review password. This link expires in 1 hour.</p>
+    <p>We received a request to reset your xrepu password. This link expires in 1 hour.</p>
     <p><a href="${resetUrl}" style="display:inline-block;background:#0a0a0a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;">Reset password</a></p>
     <p style="color:#666;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
   `);
 
-  return sendEmail({ toEmail, subject: "Reset your Sanad Review password", html });
+  return sendEmail({ toEmail, subject: "Reset your xrepu password", html });
 }
 
 module.exports = { notifyNewReviews, sendUrgentReviewAlert, sendWeeklyDigest, sendPasswordResetEmail };

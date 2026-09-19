@@ -35,7 +35,7 @@ const env = {
 
   resend: {
     apiKey: process.env.RESEND_API_KEY || null,
-    fromEmail: process.env.RESEND_FROM_EMAIL || "Sanad Review <onboarding@resend.dev>",
+    fromEmail: process.env.RESEND_FROM_EMAIL || "xrepu <onboarding@resend.dev>",
   },
 
   isProduction: (process.env.NODE_ENV || "development") === "production",
