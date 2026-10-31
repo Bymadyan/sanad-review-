@@ -46,6 +46,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use(attachCsrfToken);
 app.use(verifyCsrfToken);
+// متاح لكل صفحة (EJS) بدون ما كل route يمرره يدوياً — يتحكم بظهور نصوص/أزرار "مجاني الحين"
+app.use((req, res, next) => {
+  res.locals.freeForAll = env.freeForAll;
+  next();
+});
 
 app.use("/", require("./routes/account"));
 app.use("/", require("./routes/settings"));

@@ -366,6 +366,7 @@ html[dir="rtl"] .login-box form { text-align: right; }
 /* ----- Pricing: white ----- */
 .lp-pricing { padding: 88px 24px; }
 .lp-price-card { max-width: 380px; margin: 0 auto; background: #000; color: #fff; border-radius: 16px; padding: 36px; text-align: center; }
+.lp-price-badge { display: inline-block; background: #fff; color: #000; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; margin-bottom: 18px; }
 .lp-price { font-size: 44px; font-weight: 800; margin-bottom: 22px; }
 .lp-price span { display: block; font-size: 13px; font-weight: 500; color: #999; margin-top: 4px; }
 .lp-price-card ul { list-style: none; padding: 0; margin: 0 0 26px; text-align: start; }

@@ -33,12 +33,23 @@ router.get("/billing", requireAuth, (req, res) => {
   res.render("billing/index", { accounts, stripeConfigured: !!stripe, hasStripeCustomer, activeStatuses: ACTIVE_STATUSES });
 });
 
-// ينشئ جلسة دفع اشتراك شهري 35$ لنشاط تجاري معين (كل نشاط تجاري له اشتراكه الخاص)
+// ينشئ جلسة دفع اشتراك شهري 35$ لنشاط تجاري معين (كل نشاط تجاري له اشتراكه الخاص).
+// لو env.freeForAll مفعّل (FREE_FOR_ALL=true)، نتخطى Stripe تماماً ونفعّل الحساب فوراً مجاناً.
 router.post("/billing/:accountId/checkout", requireAuth, async (req, res, next) => {
   try {
     const accountId = Number(req.params.accountId);
     const account = db.prepare(`SELECT * FROM accounts WHERE id = ? AND user_id = ?`).get(accountId, req.user.id);
     if (!account) return res.status(404).send("Business not found");
+
+    if (env.freeForAll) {
+      upsertSubscriptionForAccount({
+        userId: req.user.id,
+        accountId,
+        customerId: null,
+        subscription: { id: null, status: "active", current_period_end: null },
+      });
+      return res.redirect("/dashboard");
+    }
 
     if (!stripe || !env.stripe.priceId) {
       return res.status(500).send("Payments aren't enabled yet (STRIPE_SECRET_KEY / STRIPE_PRICE_ID not configured)");

@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const google = require("../services/googleClient");
 const { requireAuth } = require("../middleware/auth");
+const { env } = require("../config/env");
 
 router.use(requireAuth);
 
@@ -61,23 +62,34 @@ router.post("/select-location", (req, res, next) => {
     const { locationName, businessName, reviewLink, latitude, longitude, primaryCategory } = req.body;
     if (!locationName) return res.status(400).send("Please select a business");
 
-    db.prepare(
-      `INSERT INTO accounts (user_id, business_name, location_name, access_token, refresh_token, token_expiry, google_review_link, latitude, longitude, primary_category)
+    const info = db
+      .prepare(
+        `INSERT INTO accounts (user_id, business_name, location_name, access_token, refresh_token, token_expiry, google_review_link, latitude, longitude, primary_category)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      req.user.id,
-      businessName || locationName,
-      locationName,
-      tokens.access_token,
-      tokens.refresh_token,
-      tokens.expiry_date,
-      reviewLink || null,
-      latitude ? Number(latitude) : null,
-      longitude ? Number(longitude) : null,
-      primaryCategory || null
-    );
+      )
+      .run(
+        req.user.id,
+        businessName || locationName,
+        locationName,
+        tokens.access_token,
+        tokens.refresh_token,
+        tokens.expiry_date,
+        reviewLink || null,
+        latitude ? Number(latitude) : null,
+        longitude ? Number(longitude) : null,
+        primaryCategory || null
+      );
 
     delete req.session.pendingTokens;
+
+    if (env.freeForAll) {
+      // الموقع مجاني بالكامل الحين — نفعّل الاشتراك فوراً بدون Stripe ونوديه للداشبورد مباشرة
+      db.prepare(
+        `INSERT INTO subscriptions (user_id, account_id, status, current_period_end) VALUES (?, ?, 'active', NULL)`
+      ).run(req.user.id, info.lastInsertRowid);
+      return res.redirect("/dashboard");
+    }
+
     // كل نشاط تجاري جديد يحتاج اشتراكه الخاص قبل ما يشتغل — نوديه لصفحة الاشتراك
     res.redirect("/billing");
   } catch (err) {

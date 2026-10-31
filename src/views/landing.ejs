@@ -34,10 +34,10 @@
         costing you, and what to fix first.
       </p>
       <div class="lp-hero-actions">
-        <a href="/signup" class="btn lp-cta">Get Started — $129/mo</a>
+        <a href="/signup" class="btn lp-cta"><%= freeForAll ? 'Get Started — Free right now' : 'Get Started — $129/mo' %></a>
         <a href="#how" class="lp-cta-ghost">See how it works</a>
       </div>
-      <p class="lp-hero-note">No long-term contract. Cancel anytime from your dashboard.</p>
+      <p class="lp-hero-note"><%= freeForAll ? 'Free during our launch — no card required. Cancel anytime from your dashboard.' : 'No long-term contract. Cancel anytime from your dashboard.' %></p>
     </div>
 
     <div class="lp-mock">
@@ -153,14 +153,19 @@
       <h2>One plan. Everything included.</h2>
     </div>
     <div class="lp-price-card">
-      <div class="lp-price">$129<span>/ month / business</span></div>
+      <% if (freeForAll) { %>
+        <div class="lp-price-badge">Free right now</div>
+        <div class="lp-price">$0<span>during launch — no card required</span></div>
+      <% } else { %>
+        <div class="lp-price">$129<span>/ month / business</span></div>
+      <% } %>
       <ul>
         <li>Unlimited reviews and AI-drafted replies</li>
         <li>Full executive dashboard and weekly operator report</li>
         <li>Competitor analysis, photo analysis, branch comparison</li>
         <li>Cancel anytime</li>
       </ul>
-      <a href="/signup" class="btn lp-cta full">Get Started</a>
+      <a href="/signup" class="btn lp-cta full"><%= freeForAll ? 'Get Started — Free' : 'Get Started' %></a>
     </div>
   </section>
 

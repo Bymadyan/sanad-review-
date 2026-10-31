@@ -27,6 +27,10 @@ const env = {
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
   },
 
+  // مفتاح طوارئ: لما يكون true، كل حساب جديد يتفعّل فوراً مجاناً بدون المرور على Stripe إطلاقاً
+  // (لا بطاقة، لا خصم لاحق). يُفعَّل عبر متغير بيئة FREE_FOR_ALL=true على Railway، ويُلغى بحذفه.
+  freeForAll: process.env.FREE_FOR_ALL === "true",
+
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
 
   // اختياري: مقارنة المنافسين القريبين باللوحة التنفيذية (Google Places API). بدونه، الميزة
