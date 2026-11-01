@@ -31,6 +31,9 @@ const env = {
   // (لا بطاقة، لا خصم لاحق). يُفعَّل عبر متغير بيئة FREE_FOR_ALL=true على Railway، ويُلغى بحذفه.
   freeForAll: process.env.FREE_FOR_ALL === "true",
 
+  // بريد صاحب الصلاحية الوحيد اللي يقدر يفتح /admin/stats. بدونه، الصفحة مقفولة على الجميع عمداً.
+  adminEmail: process.env.ADMIN_EMAIL || null,
+
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
 
   // اختياري: مقارنة المنافسين القريبين باللوحة التنفيذية (Google Places API). بدونه، الميزة

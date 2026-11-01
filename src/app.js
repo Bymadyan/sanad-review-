@@ -61,6 +61,7 @@ app.use("/", require("./routes/billing").router);
 app.use("/reviews", require("./routes/reviews"));
 app.use("/templates", require("./routes/templates"));
 app.use("/", require("./routes/executive"));
+app.use("/", require("./routes/admin"));
 
 app.use((req, res) => {
   res.status(404).render("errors/404");

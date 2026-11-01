@@ -248,6 +248,12 @@ html[dir="rtl"] .login-box form { text-align: right; }
 .billing-item { padding: 16px 0; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .billing-item:last-child { border-bottom: none; }
 
+/* ===== Admin stats ===== */
+.admin-stat-row { display: flex; gap: 16px; margin: 20px 0 32px; flex-wrap: wrap; }
+.admin-stat-card { flex: 1; min-width: 140px; background: #000; color: #fff; border-radius: 12px; padding: 20px; text-align: center; }
+.admin-stat-number { font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+.admin-stat-card .muted { color: #999; }
+
 /* ===== Location picker ===== */
 .location-card { display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 10px; background: var(--card); box-shadow: var(--shadow-sm); }
 

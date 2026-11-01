@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin — Stats - xrepu</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand-mark">xrepu</span>
+    <nav class="nav-links">
+      <a href="/dashboard">Dashboard</a>
+    </nav>
+  </header>
+
+  <div class="container narrow">
+    <div class="accounts">
+      <h2>Admin — Stats</h2>
+
+      <div class="admin-stat-row">
+        <div class="admin-stat-card">
+          <div class="admin-stat-number"><%= totalUsers %></div>
+          <div class="muted small">Total signups (users)</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-number"><%= totalAccounts %></div>
+          <div class="muted small">Connected businesses</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-number"><%= activeCount %></div>
+          <div class="muted small">Active / trialing subscriptions</div>
+        </div>
+      </div>
+
+      <h3>Subscriptions by status</h3>
+      <ul class="billing-list">
+        <% byStatus.forEach(function(row) { %>
+          <li class="billing-item">
+            <div><strong><%= row.status %></strong> — <%= row.n %></div>
+          </li>
+        <% }) %>
+      </ul>
+
+      <h3>Last 20 signups</h3>
+      <ul class="billing-list">
+        <% recentSignups.forEach(function(u) { %>
+          <li class="billing-item">
+            <div>
+              <strong><%= u.business_name %></strong>
+              <p class="muted small"><%= u.email %> — <%= new Date(u.created_at * 1000).toLocaleString('en-US') %></p>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+
+      <h3>Last 20 connected businesses</h3>
+      <ul class="billing-list">
+        <% recentAccounts.forEach(function(a) { %>
+          <li class="billing-item">
+            <div>
+              <strong><%= a.business_name %></strong>
+              <p class="muted small">
+                <%= a.owner_email %> — <%= a.sub_status || 'no subscription row' %> —
+                <%= new Date(a.created_at * 1000).toLocaleString('en-US') %>
+              </p>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

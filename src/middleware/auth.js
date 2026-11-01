@@ -1,4 +1,5 @@
 const db = require("../db");
+const { env } = require("../config/env");
 
 // عدّاد تنبيه داخل التطبيق: كم تقييم نجمة/نجمتين لسا ينتظر رد (بدون أي إشعار خارجي) — يختفي
 // تلقائياً بمجرد ما صاحب النشاط ينشر الرد، بدون حاجة لتتبّع "مقروء/غير مقروء" منفصل.
@@ -31,10 +32,19 @@ function requireAuth(req, res, next) {
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
+// يحمي /admin/*: لازم تسجّل دخول عادي (requireAuth قبلها) ثم بريدك يطابق ADMIN_EMAIL بالضبط.
+// بدون ADMIN_EMAIL مضبوط على Railway، الصفحة مقفولة على الجميع عمداً — حتى عليك.
+function requireAdmin(req, res, next) {
+  if (!env.adminEmail || !req.user || req.user.email.toLowerCase() !== env.adminEmail.toLowerCase()) {
+    return res.status(404).render("errors/404");
+  }
+  next();
+}
+
 // كل نشاط تجاري له اشتراكه الخاص (مو اشتراك واحد يغطي كل حسابات المستخدم)
 function isAccountActive(accountId) {
   const sub = db.prepare(`SELECT status FROM subscriptions WHERE account_id = ?`).get(accountId);
   return !!sub && ACTIVE_STATUSES.has(sub.status);
 }
 
-module.exports = { requireAuth, isAccountActive, ACTIVE_STATUSES };
+module.exports = { requireAuth, requireAdmin, isAccountActive, ACTIVE_STATUSES };
