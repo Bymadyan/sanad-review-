@@ -2,12 +2,14 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="/images/favicon-32.png" />
   <title>xrepu - Executive Dashboard</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
-    <span class="brand-mark">xrepu</span>
+    <a href="/dashboard" class="brand-mark-link"><img src="/images/logo.png" alt="xrepu" class="brand-mark-img" /></a>
     <nav class="nav-links">
       <% if (typeof urgentReviewCount !== 'undefined' && urgentReviewCount > 0) { %>
         <a href="/dashboard?status=needs_reply" class="urgent-badge-link">🚨 <%= urgentReviewCount %> urgent</a>
@@ -130,20 +132,22 @@
             <% if (branchComparison.mostImproved && branchComparison.mostImproved.delta > 0) { %><span class="exec-branch-chip up">📈 Most improved: <%= branchComparison.mostImproved.name %> (+<%= branchComparison.mostImproved.delta %>)</span><% } %>
             <% if (branchComparison.mostDeclined && branchComparison.mostDeclined.delta < 0) { %><span class="exec-branch-chip down">📉 Most declined: <%= branchComparison.mostDeclined.name %> (<%= branchComparison.mostDeclined.delta %>)</span><% } %>
           </div>
-          <table class="exec-branch-table">
-            <thead><tr><th>Branch</th><th>Current avg</th><th>Previous avg</th><th>Change</th><th>Reviews</th></tr></thead>
-            <tbody>
-              <% branchComparison.branches.forEach(function(b) { %>
-                <tr>
-                  <td><%= b.name %></td>
-                  <td><%= b.avgRating != null ? `★ ${b.avgRating}` : '—' %></td>
-                  <td><%= b.previousAvgRating != null ? `★ ${b.previousAvgRating}` : '—' %></td>
-                  <td class="<%= b.delta > 0 ? 'exec-delta up' : b.delta < 0 ? 'exec-delta down' : '' %>"><%= b.delta != null ? (b.delta > 0 ? `+${b.delta}` : b.delta) : '—' %></td>
-                  <td><%= b.reviewCount %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
+          <div class="exec-branch-table-wrap">
+            <table class="exec-branch-table">
+              <thead><tr><th>Branch</th><th>Current avg</th><th>Previous avg</th><th>Change</th><th>Reviews</th></tr></thead>
+              <tbody>
+                <% branchComparison.branches.forEach(function(b) { %>
+                  <tr>
+                    <td><%= b.name %></td>
+                    <td><%= b.avgRating != null ? `★ ${b.avgRating}` : '—' %></td>
+                    <td><%= b.previousAvgRating != null ? `★ ${b.previousAvgRating}` : '—' %></td>
+                    <td class="<%= b.delta > 0 ? 'exec-delta up' : b.delta < 0 ? 'exec-delta down' : '' %>"><%= b.delta != null ? (b.delta > 0 ? `+${b.delta}` : b.delta) : '—' %></td>
+                    <td><%= b.reviewCount %></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
         </section>
       <% } %>
 

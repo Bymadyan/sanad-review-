@@ -2,12 +2,14 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/png" href="/images/favicon-32.png" />
   <title>Subscription - xrepu</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
-    <span class="brand-mark">xrepu</span>
+    <a href="/dashboard" class="brand-mark-link"><img src="/images/logo.png" alt="xrepu" class="brand-mark-img" /></a>
     <nav class="nav-links">
       <% if (typeof urgentReviewCount !== 'undefined' && urgentReviewCount > 0) { %>
         <a href="/dashboard?status=needs_reply" class="urgent-badge-link">🚨 <%= urgentReviewCount %> urgent</a>
@@ -26,7 +28,7 @@
       <h2>Subscription</h2>
       <p class="muted"><%= freeForAll ? 'xrepu is free right now — no card required. Connect as many businesses as you like.' : 'Each connected business has its own $129/month subscription — add as many businesses as you like and pay only for the ones you activate.' %></p>
 
-      <% if (!stripeConfigured) { %>
+      <% if (!stripeConfigured && !freeForAll) { %>
         <p class="error">Payments aren't enabled yet. Please contact us.</p>
       <% } %>
 
